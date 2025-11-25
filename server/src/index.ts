@@ -1,19 +1,22 @@
 import express from "express";
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { initSockets, world, planet, playerManager } from "./socket-handler.js";
+import { startGameLoops } from "./game-loop.js";
 
 const app = express();
 const httpServer = createServer(app);
 
-const io = new Server(httpServer, {
+export const io = new Server(httpServer, {
   cors: {
-    origin: "http://localhost:5173", // your Vite dev URL
+    origin: process.env.CLIENT_ORIGIN ?? "http://localhost:5173",
     methods: ["GET", "POST"],
   },
 });
 
-io.on("connection", (socket) => {
-  console.log("✅ Player connected:", socket.id);
-});
+initSockets(io);
+startGameLoops(io, { world, planet, playerManager });
 
-httpServer.listen(3000, () => console.log("🚀 Server running on :3000"));
+httpServer.listen(3000, () =>
+  console.log("🚀 Multiplayer server running on port 3000")
+);
