@@ -9,24 +9,27 @@
 </head>
 
 <body>
-  <!-- TITLE SCREEN -->
   <div id="title-screen">
-    <div class="ss-orbit-layer"></div>
-    <div class="ss-orbit-layer ss-orbit-layer--slow"></div>
+  <div class="lp-bg"></div>
 
-    <div class="ss-wrapper">
-      <p class="ss-jp">スペース相撲</p>
-      <h1 class="ss-title">SPACE SUMO</h1>
-      <p class="ss-tagline">Knock them off the cosmos.</p>
-
-      <button id="play-btn" class="ss-button">
-        開始 (Start)
-      </button>
-    </div>
+  <div class="lp-planet">
+    <svg viewBox="0 0 200 200">
+      <polygon points="100,10 150,40 180,100 150,160 100,190 50,160 20,100 50,40"
+        fill="#c9b6ff"/>
+      <polygon points="100,30 130,50 150,100 130,150 100,170 70,150 50,100 70,50"
+        fill="#b0a4e0"/>
+    </svg>
   </div>
 
-  <!-- GAME CANVAS CONTAINER -->
-  <div id="game-container"></div>
+  <div class="lp-stars"></div>
+
+  <div class="lp-title-wrapper">
+    <h1 class="lp-title">SPACE SUMO</h1>
+    <p class="lp-sub">A cosmic knockout</p>
+    <button id="play-btn" class="lp-btn">Start</button>
+  </div>
+</div>
+<div id="game-container"></div>
 
   <script type="module" src="/src/main.ts" defer></script>
 </body>

@@ -6,109 +6,135 @@ import {
   NET_HZ,
   PLANET_RADIUS,
   PLAYER_RADIUS,
-  PUSH_STIFFNESS,
-  PUSH_DAMPING,
-  BOOST_PUSH_MULT,
-  OUTZONE_RADIUS, // ← NEW
+  OUTZONE_RADIUS,
 } from "../../packages/shared/src/index.js";
-import {
-  playerManager as pm,
-  world as w,
-  planet as p,
-} from "./socket-handler.js";
+import { PlayerManager } from "./player-manager.js";
 
+/**
+ * Start all server-side loops:
+ *  - physics integration
+ *  - powerup spawning & pickup
+ *  - state broadcasting
+ */
 export function startGameLoops(
   io: Server,
-  deps = { world: w, planet: p, playerManager: pm }
+  deps: {
+    world: CANNON.World;
+    planet: { body: CANNON.Body };
+    playerManager: PlayerManager;
+    powerUpManager: any;
+  }
 ) {
-  const { world, planet, playerManager } = deps;
+  const { world, planet, playerManager, powerUpManager } = deps;
 
-  // --- Physics loop (fixed timestep) ---
   const physicsDt = 1 / PHYSICS_HZ;
+
+  // Hook elimination -> broadcast to clients
+  playerManager.onEliminate = (id: string) => {
+    io.emit(EVENTS.ELIMINATED, { id });
+  };
+
+  // Powerup spawn control
+  let lastPowerupSpawnAt = 0;
+  const POWERUP_SPAWN_INTERVAL_MS = 8000;
+  const MAX_POWERUPS = 3;
+
+  // ============================================================
+  // PHYSICS + GAME LOOP
+  // ============================================================
   setInterval(() => {
+    // 1) Apply input / gravity / abilities
     playerManager.update();
 
-    // --- Sumo push: springy separation when players overlap (before step) ---
-    const playersArr = Array.from(playerManager.players.values());
-    for (let i = 0; i < playersArr.length; i++) {
-      for (let j = i + 1; j < playersArr.length; j++) {
-        const A = playersArr[i];
-        const B = playersArr[j];
-        const a = A.body,
-          b = B.body;
-
-        // radii (they're spheres)
-        const ra = (a.shapes[0] as CANNON.Sphere).radius ?? PLAYER_RADIUS;
-        const rb = (b.shapes[0] as CANNON.Sphere).radius ?? PLAYER_RADIUS;
-        const minDist = ra + rb;
-
-        const delta = b.position.vsub(a.position);
-        const dist = delta.length();
-        if (dist <= 1e-6) continue; // avoid NaN on identical positions
-
-        if (dist < minDist) {
-          // normal from A->B
-          const n = delta.scale(1 / dist);
-          const penetration = minDist - dist;
-
-          // relative velocity along normal (for damping)
-          const relVel = b.velocity.vsub(a.velocity);
-          const relAlongN = relVel.dot(n);
-
-          // base shove: spring + damping
-          let mag = PUSH_STIFFNESS * penetration + PUSH_DAMPING * relAlongN;
-
-          // boost makes the shove spicier if either pressed boost this tick
-          const boosting =
-            A.input?.boost || B.input?.boost ? BOOST_PUSH_MULT : 1;
-          mag *= boosting;
-
-          // split opposite impulses (equal & opposite)
-          const impulse = n.scale(mag * 0.5);
-          a.applyImpulse(impulse.scale(-1), a.position);
-          b.applyImpulse(impulse, b.position);
-        }
-      }
-    }
-
+    // 2) Step physics
     world.step(physicsDt);
 
-    // --- Clamp to planet surface using actual radii ---
-    const planetR =
-      (planet.body.shapes[0] as CANNON.Sphere).radius ?? PLANET_RADIUS;
-    for (const { body } of playerManager.players.values()) {
-      const playerR = (body.shapes[0] as CANNON.Sphere).radius ?? PLAYER_RADIUS;
-      const surfaceDist = planetR + playerR;
-      const dist = body.position.distanceTo(planet.body.position);
-      if (dist < surfaceDist) {
-        const correctionDir = body.position.vsub(planet.body.position).unit();
-        const correction = correctionDir.scale(surfaceDist - dist);
-        body.position.vadd(correction, body.position);
-        body.velocity.scale(0.5, body.velocity);
-      }
-    }
+    // 3) Keep players on planet surface & eliminate out-of-bounds
+    const planetShape = planet.body.shapes[0] as CANNON.Sphere;
+    const planetR = planetShape?.radius ?? PLANET_RADIUS;
 
-    // --- Eliminate players outside the outzone & announce ---
-    let changed = false;
-    for (const [id, { body }] of Array.from(playerManager.players.entries())) {
-      const dist = body.position.distanceTo(planet.body.position);
+    const toEliminate: string[] = [];
+
+    for (const [id, p] of playerManager.players.entries()) {
+      const body = p.body;
+
+      const rel = body.position.vsub(planet.body.position);
+      let dist = rel.length();
+
+      if (dist === 0) {
+        rel.set(0, 1, 0);
+        dist = 1;
+      }
+
+      // Kill if too far away
       if (dist > OUTZONE_RADIUS) {
-        playerManager.removePlayer(id); // remove from simulation
-        io.emit(EVENTS.ELIMINATED, { id }); // notify clients
-        changed = true;
+        toEliminate.push(id);
+        continue;
+      }
+
+      // Clamp to planet surface
+      const FEET_OFFSET = PLAYER_RADIUS * 0.6;
+      const target = planetR + PLAYER_RADIUS - FEET_OFFSET;
+      if (Math.abs(dist - target) > 1e-4) {
+        const n = rel.scale(1 / dist); // unit
+        body.position = planet.body.position.vadd(n.scale(target));
+
+        // remove radial velocity so they move tangentially
+        const v = body.velocity;
+        const vn = n.scale(v.dot(n));
+        v.vsub(vn, v);
       }
     }
 
-    // --- Optional: end round if only one player remains ---
-    if (changed && playerManager.players.size === 1) {
-      const [winnerId] = playerManager.players.keys();
-      if (winnerId) io.emit(EVENTS.ROUND_OVER, { winnerId });
+    for (const id of toEliminate) {
+      playerManager.eliminate(id);
+    }
+
+    // 4) Powerup spawning
+    const now = Date.now();
+    if (
+      powerUpManager &&
+      powerUpManager.powerups &&
+      powerUpManager.powerups.size < MAX_POWERUPS &&
+      now - lastPowerupSpawnAt >= POWERUP_SPAWN_INTERVAL_MS
+    ) {
+      lastPowerupSpawnAt = now;
+
+      const types = ["super_boost", "mass_up", "ghost"] as const;
+      const type = types[Math.floor(Math.random() * types.length)];
+
+      const angle = Math.random() * Math.PI * 2;
+      const radius = planetR + 1;
+
+      const pos: [number, number, number] = [
+        Math.cos(angle) * radius,
+        (Math.random() * 2 - 1) * radius * 0.2,
+        Math.sin(angle) * radius,
+      ];
+
+      const pu = powerUpManager.spawn(type, pos);
+      io.emit("POWERUP_SPAWN", pu);
+    }
+
+    // 5) Powerup pickups
+    if (powerUpManager) {
+      const collected = powerUpManager.checkPlayerPickup(playerManager);
+      if (collected) {
+        io.emit("POWERUP_TAKEN", { id: collected.id });
+      }
     }
   }, Math.round(1000 / PHYSICS_HZ));
 
-  // --- Network loop (decoupled) ---
+  // ============================================================
+  // NETWORK LOOP (STATE BROADCAST)
+  // ============================================================
   setInterval(() => {
     const states = playerManager.getStates();
     io.emit(EVENTS.STATE, states);
+
+    if (powerUpManager && typeof powerUpManager.getState === "function") {
+      const pState = powerUpManager.getState();
+      io.emit("POWERUP_STATE", pState);
+    }
   }, Math.round(1000 / NET_HZ));
 }

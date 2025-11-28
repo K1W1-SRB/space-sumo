@@ -2,23 +2,22 @@ import * as THREE from "three";
 
 export class GameCamera {
   camera: THREE.PerspectiveCamera;
-  offset: THREE.Vector3;
-  smoothness: number;
-  raycaster: THREE.Raycaster;
-  orbitDistance: number;
+
+  distance = 12; // fixed camera distance
+  height = 3; // slight lift above player
+  smoothPos = 0.12; // position smoothing
+  smoothDir = 0.08; // direction smoothing
+
+  // smooth forward direction (solves jerkiness!)
+  private smoothedForward = new THREE.Vector3(1, 0, 0);
 
   constructor() {
     this.camera = new THREE.PerspectiveCamera(
-      75,
+      70,
       window.innerWidth / window.innerHeight,
       0.1,
-      1000
+      2000
     );
-
-    this.offset = new THREE.Vector3(0, 4, 10); // base offset above player
-    this.smoothness = 0.08;
-    this.raycaster = new THREE.Raycaster();
-    this.orbitDistance = 15; // how far camera stays from planet center
 
     window.addEventListener("resize", () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -26,41 +25,57 @@ export class GameCamera {
     });
   }
 
-  update(playerPos: THREE.Vector3, planetMesh: THREE.Mesh) {
-    // --- Find direction from planet center to player ---
-    const planetCenter = new THREE.Vector3(0, 0, 0);
-    const fromCenterToPlayer = playerPos.clone().sub(planetCenter).normalize();
-    // Scale orbit distance slightly based on player distance from center
-    this.orbitDistance = THREE.MathUtils.lerp(
-      this.orbitDistance,
-      15 + playerPos.length() * 0.1,
-      0.05
-    );
+  update(
+    playerPos: THREE.Vector3,
+    planet: THREE.Mesh,
+    velocity: THREE.Vector3
+  ) {
+    // Surface normal (planet center = origin)
+    const up = playerPos.clone().normalize();
 
-    // --- Place camera a fixed distance away in same direction ---
-    const desiredPos = planetCenter
-      .clone()
-      .add(fromCenterToPlayer.clone().multiplyScalar(this.orbitDistance))
-      .add(this.offset);
+    // Compute NEW forward (from velocity or fallback)
+    let desiredForward = velocity.clone().normalize();
 
-    // --- Collision check with planet ---
-    const direction = desiredPos.clone().sub(playerPos).normalize();
-    this.raycaster.set(playerPos, direction);
-    const intersections = this.raycaster.intersectObject(planetMesh, false);
-
-    let correctedPos = desiredPos.clone();
-    if (intersections.length > 0) {
-      const hit = intersections[0];
-      correctedPos = playerPos
-        .clone()
-        .add(direction.multiplyScalar(hit.distance - 0.5)); // half-unit buffer
+    // If velocity is tiny, keep old forward (prevents jerky snapping)
+    if (velocity.length() < 0.4 || !isFinite(desiredForward.length())) {
+      desiredForward.copy(this.smoothedForward);
     }
 
-    // --- Smoothly move camera to position ---
-    this.camera.position.lerp(correctedPos, this.smoothness);
+    // Project onto tangent plane
+    desiredForward = desiredForward.projectOnPlane(up).normalize();
 
-    // --- Always look at the player ---
-    this.camera.lookAt(playerPos);
+    // Smooth the forward direction (this fixes jerkiness!)
+    this.smoothedForward.lerp(desiredForward, this.smoothDir).normalize();
+
+    // Compute desired camera position
+    const desiredPos = playerPos
+      .clone()
+      .add(up.clone().multiplyScalar(this.height)) // lift
+      .add(this.smoothedForward.clone().multiplyScalar(-this.distance)); // behind
+
+    // Collision test with planet
+    const dir = desiredPos.clone().sub(playerPos).normalize();
+    const ray = new THREE.Raycaster(playerPos, dir);
+    const hits = ray.intersectObject(planet, false);
+
+    let finalPos = desiredPos.clone();
+    if (hits.length > 0) {
+      finalPos = playerPos
+        .clone()
+        .add(dir.multiplyScalar(hits[0].distance - 0.8));
+    }
+
+    // Smooth camera motion
+    this.camera.position.lerp(finalPos, this.smoothPos);
+
+    // Smooth look-at target
+    const currentLook = new THREE.Vector3();
+    this.camera.getWorldDirection(currentLook);
+
+    const targetLook = playerPos.clone().sub(this.camera.position).normalize();
+    const blendedLook = currentLook.lerp(targetLook, this.smoothDir);
+
+    this.camera.lookAt(this.camera.position.clone().add(blendedLook));
   }
 
   get instance() {

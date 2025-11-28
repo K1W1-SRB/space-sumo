@@ -1,7 +1,10 @@
 import { io } from "socket.io-client";
 import { EVENTS, PlayerState } from "../../../packages/shared/src/index.js";
 
-export const socket = io("http://localhost:3000");
+const socket = io("http://localhost:3000", {
+  autoConnect: false,
+  transports: ["websocket", "polling"], // Recommended for CORS issues
+});
 
 type StateHandler = (states: PlayerState[]) => void;
 type EliminatedHandler = (id: string) => void;

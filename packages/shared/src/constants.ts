@@ -4,8 +4,9 @@ export const NET_HZ = 20; // state broadcast rate
 export const PLANET_RADIUS = 5;
 export const PLAYER_RADIUS = 0.5;
 
-export const GRAVITY_STRENGTH = 20; // toward planet center (N per kg-ish)
-export const THRUST_FORCE = 70; // tangent thrust
+export const GRAVITY_STRENGTH = 60; // toward planet center (N per kg-ish)
+export const THRUST_FORCE = 65; // tangent thrust
+export const DAMPING = 0.92;
 export const BOOST_IMPULSE = 1; // instant impulse away from planet
 
 export const OUTZONE_RADIUS = PLANET_RADIUS + 25;
