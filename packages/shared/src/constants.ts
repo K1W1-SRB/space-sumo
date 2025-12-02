@@ -9,7 +9,7 @@ export const THRUST_FORCE = 65; // tangent thrust
 export const DAMPING = 0.92;
 export const BOOST_IMPULSE = 10; // instant impulse away from planet
 
-export const OUTZONE_RADIUS = PLANET_RADIUS + 25;
+export const OUTZONE_RADIUS = PLANET_RADIUS + 10;
 
 export const PUSH_STIFFNESS = 200; // how hard players shove apart
 export const PUSH_DAMPING = 6; // resists “jitter” on contact
