@@ -27,8 +27,35 @@
     <h1 class="lp-title">SPACE SUMO</h1>
     <p class="lp-sub">A cosmic knockout</p>
     <button id="play-btn" class="lp-btn">Start</button>
+    <button id="info-btn" class="lp-btn">Info</button>
   </div>
 </div>
+
+  <div id="info-screen">
+    <div class="lp-bg"></div>
+
+    <div class="lp-planet">
+      <svg viewBox="0 0 200 200">
+        <polygon points="100,10 150,40 180,100 150,160 100,190 50,160 20,100 50,40"
+          fill="#c9b6ff"/>
+        <polygon points="100,30 130,50 150,100 130,150 100,170 70,150 50,100 70,50"
+          fill="#b0a4e0"/>
+      </svg>
+    </div>
+
+    <div class="lp-stars"></div>
+    <div class="info-title-wrapper">
+    <h1>Guide</h1> <p> Your goal is brutally simple: stay on the planet and knock everyone else off. Use movement, boost, and power-ups to outplay other players. If you drift too far from the planet or get launched into space, you're done. </p> <h3>Controls</h3> <p> <strong>W / A / S / D</strong> — Move around the planet’s surface (tangential movement).<br/> <strong>Space</strong> — Boost upward away from the planet for a quick reposition or to avoid being knocked off.<br/> <strong>E</strong> — Push attack (short-range impulse that shoves nearby players). Use it aggressively or to finish someone who’s off-balance. </p> <h3>Win Condition</h3> <p> Last player still on or near the planet wins. Anyone who crosses the out-of-bounds distance is instantly eliminated—no second chances. </p> <h3>Power-Ups</h3> <p> Power-ups spawn periodically on the planet surface. Rolling over them grants temporary advantages: <br/><br/>
+
+    <strong>• Turbo Core</strong> — Massive boost strength for a short duration. Great for escaping or launching someone into orbit.<br/>
+    <strong>• Heavy Shell</strong> — Increases your mass, making you harder to push while making your pushes hit harder.<br/>
+    <strong>• Slipstream</strong> — Lowers friction for faster lateral movement, but makes controlling momentum riskier.<br/>
+    <strong>• Shock Pulse</strong> — Your next push (E) releases an enhanced radial blast with increased knockback.
+
+    </p>
+    <button id="main-btn" class="lp-btn">Return</button>
+    </div>
+  </div>
 <div id="game-container"></div>
 
   <script type="module" src="/src/main.ts" defer></script>

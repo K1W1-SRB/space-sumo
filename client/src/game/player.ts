@@ -4,6 +4,13 @@ import { PLAYER_RADIUS } from "../../../packages/shared/src/index.js";
 export class Player {
   mesh: THREE.Group;
 
+  // Server-authoritative state
+  serverPos = new THREE.Vector3();
+  velocity = new THREE.Vector3();
+
+  // Prediction blending
+  private lerpAlpha = 1;
+
   // body parts
   private head!: THREE.Mesh;
   private body!: THREE.Mesh;
@@ -32,6 +39,174 @@ export class Player {
     this.buildChibiLowPoly(color);
   }
 
+  // ========= SERVER → CLIENT UPDATE =========
+  setServerState(pos: [number, number, number], vel: THREE.Vector3) {
+    this.serverPos.set(pos[0], pos[1], pos[2]);
+    this.velocity.copy(vel);
+
+    // reset interpolation window
+    this.lerpAlpha = 0;
+  }
+
+  // ========= CLIENT PREDICTION + INTERPOLATION =========
+  private simulateMovement(delta: number) {
+    // 1) Predict local movement with velocity
+    this.mesh.position.x += this.velocity.x * delta;
+    this.mesh.position.y += this.velocity.y * delta;
+    this.mesh.position.z += this.velocity.z * delta;
+
+    // 2) Smoothly correct toward server position
+    if (this.lerpAlpha < 1) {
+      this.lerpAlpha += delta * 10; // tune smoothing speed
+      this.mesh.position.lerp(this.serverPos, this.lerpAlpha);
+    }
+  }
+
+  // ========= ROTATION =========
+  updateRotation(vel: THREE.Vector3, planetPos: THREE.Vector3) {
+    const up = this.mesh.position.clone().sub(planetPos).normalize();
+
+    const upQuat = new THREE.Quaternion().setFromUnitVectors(
+      new THREE.Vector3(0, 1, 0),
+      up
+    );
+
+    const horiz = vel.clone().projectOnPlane(up);
+    let yawQuat = new THREE.Quaternion();
+
+    if (horiz.lengthSq() > 0.0001) {
+      const forward = horiz.normalize();
+      const m = new THREE.Matrix4().lookAt(
+        new THREE.Vector3(0, 0, 0),
+        forward,
+        up
+      );
+      yawQuat.setFromRotationMatrix(m);
+    }
+
+    const target = new THREE.Quaternion();
+    target.multiplyQuaternions(upQuat, yawQuat);
+
+    this.mesh.quaternion.slerp(target, 0.18);
+  }
+
+  updateAnimationFromVelocity(v: THREE.Vector3) {
+    this.isMoving = v.length() > 0.4;
+  }
+
+  // ========= UPDATE LOOP =========
+  update(delta: number) {
+    this.time += delta;
+
+    // Apply movement prediction
+    this.simulateMovement(delta);
+
+    // WALK ANIMATION
+    const speed = this.isMoving ? 1 : 0;
+    const freq = 5 * speed;
+
+    const armSwing = Math.sin(this.time * freq) * 0.4 * speed;
+    this.leftArm.rotation.x = armSwing;
+    this.rightArm.rotation.x = -armSwing;
+
+    const legSwing = Math.sin(this.time * freq) * 0.35 * speed;
+    this.leftLeg.rotation.x = -legSwing;
+    this.rightLeg.rotation.x = legSwing;
+
+    const bodyBob = this.isMoving ? Math.sin(this.time * freq * 0.5) * 0.05 : 0;
+    this.body.position.y = PLAYER_RADIUS * 0.8 + bodyBob;
+
+    const headBob = this.isMoving
+      ? Math.sin(this.time * freq * 0.5 + 0.3) * 0.04
+      : 0;
+    this.head.position.y = PLAYER_RADIUS * 1.6 + headBob;
+
+    // SPECIAL ANIMS
+    this.updateJump(delta);
+    this.updatePush(delta);
+  }
+
+  // ====== ANIMATIONS (UNCHANGED) ======
+
+  private updateJump(delta: number) {
+    if (!this.isJumping) return;
+
+    this.jumpTimer += delta;
+    const t = this.jumpTimer;
+
+    if (t < 0.12) {
+      this.body.scale.set(1.1, 0.7, 1.1);
+      this.head.position.y -= 0.12;
+    } else if (t < 0.25) {
+      this.body.scale.set(0.95, 1.15, 0.95);
+      this.head.position.y += 0.18;
+    } else if (t < 0.5) {
+      this.body.scale.set(1, 1, 1);
+    } else {
+      this.body.scale.set(1, 0.85, 1);
+      this.head.position.y -= 0.05;
+      if (t > 0.65) {
+        this.body.scale.set(1, 1, 1);
+        this.head.position.y = PLAYER_RADIUS * 1.6;
+        this.isJumping = false;
+      }
+    }
+  }
+
+  private updatePush(delta: number) {
+    if (!this.isPushing) return;
+
+    this.pushTimer += delta;
+    const t = this.pushTimer;
+
+    if (t < 0.12) {
+      this.leftArm.rotation.x = -0.7;
+      this.rightArm.rotation.x = -0.7;
+    } else if (t < 0.25) {
+      this.leftArm.rotation.x = 1.0;
+      this.rightArm.rotation.x = 1.0;
+    } else {
+      this.leftArm.rotation.x *= 0.6;
+      this.rightArm.rotation.x *= 0.6;
+    }
+
+    if (t > 0.45) {
+      this.isPushing = false;
+      this.leftArm.rotation.set(0, 0, -0.7);
+      this.rightArm.rotation.set(0, 0, 0.7);
+    }
+  }
+
+  // ====== TRIGGERS ======
+
+  triggerJump() {
+    if (!this.isJumping) {
+      this.isJumping = true;
+      this.jumpTimer = 0;
+    }
+  }
+
+  triggerPush() {
+    if (!this.isPushing) {
+      this.isPushing = true;
+      this.pushTimer = 0;
+    }
+  }
+
+  dispose(scene: THREE.Scene) {
+    scene.remove(this.mesh);
+    this.mesh.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const m = child as THREE.Mesh;
+        m.geometry?.dispose();
+        if (Array.isArray(m.material)) {
+          for (const mat of m.material) mat.dispose();
+        } else if (m.material) (m.material as THREE.Material).dispose();
+      }
+    });
+  }
+
+  // ========= MODEL BUILDING CODE (UNCHANGED) =========
   private flat(color: string) {
     return new THREE.MeshStandardMaterial({
       color,
@@ -143,195 +318,5 @@ export class Player {
 
     sumo.position.y = PLAYER_RADIUS * 0.9;
     this.mesh.add(sumo);
-  }
-
-  static computeStableFrame(pos: THREE.Vector3) {
-    const up = pos.clone().normalize();
-
-    const EAST = new THREE.Vector3(1, 0, 0);
-    const NORTH = new THREE.Vector3(0, 0, 1);
-
-    let right = new THREE.Vector3().crossVectors(up, EAST);
-
-    if (right.length() < 0.001) {
-      right = new THREE.Vector3().crossVectors(up, NORTH);
-    }
-
-    right.normalize();
-
-    const forward = new THREE.Vector3().crossVectors(right, up).normalize();
-
-    return { forward, right, up };
-  }
-
-  // ===== API =====
-  updatePosition(pos: [number, number, number]) {
-    this.mesh.position.set(pos[0], pos[1], pos[2]);
-  }
-
-  // Triggered externally
-  triggerJump() {
-    if (!this.isJumping) {
-      this.isJumping = true;
-      this.jumpTimer = 0;
-    }
-  }
-
-  triggerPush() {
-    if (!this.isPushing) {
-      this.isPushing = true;
-      this.pushTimer = 0;
-    }
-  }
-
-  updateRotation(velocity: THREE.Vector3, planetPos: THREE.Vector3) {
-    const up = this.mesh.position.clone().sub(planetPos).normalize();
-
-    const upQuat = new THREE.Quaternion().setFromUnitVectors(
-      new THREE.Vector3(0, 1, 0),
-      up
-    );
-
-    const horiz = velocity.clone().projectOnPlane(up);
-    let yawQuat = new THREE.Quaternion();
-
-    if (horiz.lengthSq() > 0.0001) {
-      const forward = horiz.normalize();
-      const m = new THREE.Matrix4().lookAt(
-        new THREE.Vector3(0, 0, 0),
-        forward,
-        up
-      );
-      yawQuat.setFromRotationMatrix(m);
-    }
-
-    const target = new THREE.Quaternion();
-    target.multiplyQuaternions(upQuat, yawQuat);
-
-    this.mesh.quaternion.slerp(target, 0.18);
-
-    // tilt
-    const right = new THREE.Vector3(1, 0, 0).applyQuaternion(
-      this.mesh.quaternion
-    );
-    const sideSpeed = velocity.dot(right);
-    const tilt = THREE.MathUtils.clamp(-sideSpeed * 0.025, -0.2, 0.2);
-
-    const tiltQuat = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(0, 0, 1),
-      tilt
-    );
-    this.mesh.quaternion.multiply(tiltQuat);
-  }
-
-  updateAnimationFromVelocity(v: THREE.Vector3) {
-    this.isMoving = v.length() > 0.4;
-  }
-
-  // ===== JUMP ANIMATION =====
-  private updateJump(delta: number) {
-    if (!this.isJumping) return;
-
-    this.jumpTimer += delta;
-    const t = this.jumpTimer;
-
-    // 0–0.12: squat
-    if (t < 0.12) {
-      this.body.scale.set(1.1, 0.7, 1.1);
-      this.head.position.y -= 0.12;
-    }
-    // 0.12–0.25: stretch upward
-    else if (t < 0.25) {
-      this.body.scale.set(0.95, 1.15, 0.95);
-      this.head.position.y += 0.18;
-    }
-    // 0.25–0.5: airborne
-    else if (t < 0.5) {
-      this.body.scale.set(1, 1, 1);
-    }
-    // landing
-    else {
-      this.body.scale.set(1, 0.85, 1);
-      this.head.position.y -= 0.05;
-
-      if (t > 0.65) {
-        this.body.scale.set(1, 1, 1);
-        this.head.position.y = PLAYER_RADIUS * 1.6;
-        this.isJumping = false;
-      }
-    }
-  }
-
-  // ===== PUSH ANIMATION =====
-  private updatePush(delta: number) {
-    if (!this.isPushing) return;
-
-    this.pushTimer += delta;
-    const t = this.pushTimer;
-
-    if (t < 0.12) {
-      // wind-up
-      this.leftArm.rotation.x = -0.7;
-      this.rightArm.rotation.x = -0.7;
-    } else if (t < 0.25) {
-      // thrust
-      this.leftArm.rotation.x = 1.0;
-      this.rightArm.rotation.x = 1.0;
-    } else {
-      // recover
-      this.leftArm.rotation.x *= 0.6;
-      this.rightArm.rotation.x *= 0.6;
-    }
-
-    if (t > 0.45) {
-      this.isPushing = false;
-
-      // return to idle pose
-      this.leftArm.rotation.set(0, 0, -0.7);
-      this.rightArm.rotation.set(0, 0, 0.7);
-    }
-  }
-
-  update(delta: number) {
-    this.time += delta;
-
-    const speed = this.isMoving ? 1 : 0;
-    const freq = 5 * speed;
-
-    // Walk arms
-    const armSwing = Math.sin(this.time * freq) * 0.4 * speed;
-    this.leftArm.rotation.x = armSwing;
-    this.rightArm.rotation.x = -armSwing;
-
-    // Walk legs
-    const legSwing = Math.sin(this.time * freq) * 0.35 * speed;
-    this.leftLeg.rotation.x = -legSwing;
-    this.rightLeg.rotation.x = legSwing;
-
-    // Bob
-    const bodyBob = this.isMoving ? Math.sin(this.time * freq * 0.5) * 0.05 : 0;
-    this.body.position.y = PLAYER_RADIUS * 0.8 + bodyBob;
-
-    const headBob = this.isMoving
-      ? Math.sin(this.time * freq * 0.5 + 0.3) * 0.04
-      : 0;
-    this.head.position.y = PLAYER_RADIUS * 1.6 + headBob;
-
-    // Trigger jump/push animations
-    this.updateJump(delta);
-    this.updatePush(delta);
-  }
-
-  dispose(scene: THREE.Scene) {
-    scene.remove(this.mesh);
-    this.mesh.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const m = child as THREE.Mesh;
-        m.geometry?.dispose();
-        if (Array.isArray(m.material)) {
-          for (const mat of m.material) mat.dispose();
-        } else if (m.material) (m.material as THREE.Material).dispose();
-      }
-    });
   }
 }

@@ -33,6 +33,16 @@ html, body {
   z-index: 10;
 }
 
+#info-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, #080b15, #05060f 70%);
+  overflow: hidden;
+  z-index: 10;
+}
 /* soft pastel background glow */
 .lp-bg {
   position: absolute;
@@ -76,6 +86,24 @@ html, body {
   animation: lp-appear 0.6s ease-out forwards;
   opacity: 0;
   transform: translateY(20px);
+  display: flex;
+  flex-flow: column; 
+}
+@keyframes lp-appear {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.info-title-wrapper {
+  z-index: 20;
+  text-align: center;
+  animation: lp-appear 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+  display: flex;
+  flex-flow: column; 
+  max-width: 50%;
 }
 @keyframes lp-appear {
   to {
@@ -114,6 +142,7 @@ html, body {
   background: #c9b6ff;
   color: #1b1b27;
   font-weight: 700;
+  margin: 10px;
   cursor: pointer;
   box-shadow: 0 6px 0 #8a77bf;
   transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;

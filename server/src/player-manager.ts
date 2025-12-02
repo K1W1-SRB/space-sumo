@@ -72,9 +72,24 @@ export class PlayerManager {
     }
   }
 
+  /**
+   * Network → server input.
+   * - Thrust is continuous: always overwritten.
+   * - Boost/push are one-shot: we only set them when true, never overwrite with false.
+   */
   applyInput(id: string, input: PlayerInput) {
     const player = this.players.get(id);
-    if (player) player.input = input;
+    if (!player) return;
+
+    // continuous
+    player.input.thrust = input.thrust;
+
+    if (input.boost) {
+      player.input.boost = true;
+    }
+    if (input.push) {
+      player.input.push = true;
+    }
   }
 
   grantPowerup(id: string, type: PowerupType) {
@@ -96,13 +111,14 @@ export class PlayerManager {
   }
 
   update() {
+    const now = Date.now();
+
     for (const player of this.players.values()) {
       const { body, input } = player;
 
       // --- Gravity towards planet center ---
       const dirToCenter = this.planet.position.vsub(body.position);
       const gravityDir = dirToCenter.unit();
-      body.applyForce(gravityDir.scale(GRAVITY_STRENGTH), body.position);
 
       // --- Tangent frame (movement along surface) ---
       const up = gravityDir.scale(-1); // player local up (away from planet)
@@ -118,6 +134,30 @@ export class PlayerManager {
 
       const forward = right.cross(up).unit();
 
+      // --- Resolve active powerup flags for this tick ---
+      const effect = this.effects.get(player.id);
+      let massUpActive = false;
+      let ghostActive = false;
+      let superBoostActive = false;
+
+      if (effect) {
+        if (now > effect.until) {
+          this.effects.delete(player.id);
+        } else {
+          if (effect.type === "mass_up") {
+            massUpActive = true;
+            body.mass = 2;
+          }
+          if (effect.type === "ghost") {
+            ghostActive = true;
+            body.collisionResponse = false;
+          }
+          if (effect.type === "super_boost") {
+            superBoostActive = true;
+          }
+        }
+      }
+
       // --- Input thrust (WASD) ---
       const [tx, , tz] = input.thrust;
       const hasInput = Math.abs(tx) > 0 || Math.abs(tz) > 0;
@@ -132,44 +172,38 @@ export class PlayerManager {
           moveDir.scale(1 / len, moveDir);
         }
 
-        // SCALE DOWN THRUST HERE – this is what was too spicy
-        const MOVE_FORCE = THRUST_FORCE * 0.35; // try 0.25–0.4 range
+        const MOVE_FORCE = THRUST_FORCE * 0.35;
         body.applyForce(moveDir.scale(MOVE_FORCE), body.position);
       }
 
-      // --- Boost (space) ---
-      if (input.boost) {
-        body.applyImpulse(gravityDir.scale(-BOOST_IMPULSE), body.position);
+      // --- Boost (space, one-shot, latched) ---
+      let justBoosted = false;
+
+      if (player.input.boost) {
+        player.input.boost = false; // consume
+
+        const up = gravityDir.scale(-1); // correct upward/outward direction
+        const power = BOOST_IMPULSE * (superBoostActive ? 3 : 1);
+
+        body.applyImpulse(up.scale(power), body.position);
+
+        justBoosted = true;
       }
 
-      // --- Powerup effects ---
-      const effect = this.effects.get(player.id);
-      if (effect) {
-        if (Date.now() > effect.until) {
-          this.effects.delete(player.id);
-        } else {
-          if (effect.type === "mass_up") {
-            body.mass = 2;
-          }
-          if (effect.type === "ghost") {
-            body.collisionResponse = false;
-          }
-          if (effect.type === "super_boost" && input.boost) {
-            body.applyImpulse(
-              gravityDir.scale(-BOOST_IMPULSE * 3),
-              body.position
-            );
-          }
-        }
+      body.applyForce(gravityDir.scale(GRAVITY_STRENGTH), body.position);
+
+      if (justBoosted) {
+        // Reduce gravity for 2 frames after boost
+        body.applyForce(
+          gravityDir.scale(-GRAVITY_STRENGTH * 0.6),
+          body.position
+        );
       }
 
-      // reset per-tick overrides
-      body.mass = 1;
-      body.collisionResponse = true;
+      // --- Active Push (E, one-shot, latched) ---
+      if (player.input.push) {
+        player.input.push = false; // consume
 
-      // --- Active Push (E) ---
-      if (input.push) {
-        const now = Date.now();
         if (now - player.lastPushAt >= PUSH_ABILITY_COOLDOWN_MS) {
           player.lastPushAt = now;
 
@@ -178,6 +212,7 @@ export class PlayerManager {
 
           for (const other of this.players.values()) {
             if (other.id === player.id) continue;
+
             const d = other.body.position.distanceTo(origin);
             if (d <= PUSH_ABILITY_RADIUS && d > 1e-6) {
               victims.push(other.body);
@@ -185,7 +220,7 @@ export class PlayerManager {
           }
 
           for (const obody of victims) {
-            const dir = obody.position.vsub(origin).unit(); // from me -> them
+            const dir = obody.position.vsub(origin).unit();
             obody.applyImpulse(dir.scale(PUSH_ABILITY_IMPULSE), obody.position);
           }
 
@@ -203,31 +238,36 @@ export class PlayerManager {
         }
       }
 
+      // --- Reset per-tick overrides if effect not active ---
+      if (!massUpActive) body.mass = 1;
+      if (!ghostActive) body.collisionResponse = true;
+
       // --- Tangential damping + max speed clamp ---
       const vel = body.velocity;
       const speed = vel.length();
       if (speed > 1e-3) {
-        const MAX_SPEED = 12; // tune this if you want slower/faster overall
+        const BASE_MAX_SPEED = 12;
 
-        if (speed > MAX_SPEED) {
-          vel.scale(MAX_SPEED / speed, vel);
+        const maxSpeed = justBoosted ? Infinity : BASE_MAX_SPEED;
+        justBoosted = true;
+
+        if (speed > maxSpeed) {
+          vel.scale(maxSpeed / speed, vel);
         }
 
-        const DAMPING = 0.9; // 0.85 = sticky, 0.95 = slippy
-        vel.scale(DAMPING, vel);
+        if (!justBoosted) {
+          vel.scale(DAMPING, vel);
+        }
       }
     }
   }
 
   getStates(): PlayerState[] {
+    // IMPORTANT: do NOT mutate velocity here. Just read it.
     return Array.from(this.players.values()).map(({ id, body, color }) => ({
       id,
       position: [body.position.x, body.position.y, body.position.z],
-      velocity: [
-        (body.velocity.x *= DAMPING),
-        (body.velocity.y *= DAMPING),
-        (body.velocity.z *= DAMPING),
-      ],
+      velocity: [body.velocity.x, body.velocity.y, body.velocity.z],
       color,
     }));
   }

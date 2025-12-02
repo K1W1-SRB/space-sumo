@@ -86,9 +86,9 @@ export class EventHandlers {
 
         // Apply position / anim updates
         const vel = new THREE.Vector3(...s.velocity);
+        player.setServerState(s.position, vel);
         player.updateRotation(vel, this.planet.mesh.position);
         player.updateAnimationFromVelocity(vel);
-        player.updatePosition(s.position);
 
         // 🔥 Identify our local player *every tick*, not only on creation
         if (s.id === this.socket.id) {

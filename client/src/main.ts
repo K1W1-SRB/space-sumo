@@ -23,7 +23,10 @@ let STATE: ClientState = ClientState.TITLE;
     UI / TITLE SCREEN
 ============================================================ */
 const titleEl = document.getElementById("title-screen")!;
+const infoEl = document.getElementById("info-screen")!;
 const playBtn = document.getElementById("play-btn")!;
+const infoBtn = document.getElementById("info-btn")!;
+const mainBtn = document.getElementById("main-btn")!;
 const gameContainer = document.getElementById("game-container")!;
 
 /* ============================================================
@@ -70,6 +73,16 @@ playBtn.onclick = () => {
   socket.connect();
 };
 
+infoBtn.onclick = () => {
+  titleEl.style.display = "none";
+  infoEl.style.display = "flex";
+};
+
+mainBtn.onclick = () => {
+  titleEl.style.display = "flex";
+  infoEl.style.display = "none";
+};
+
 /* ============================================================
     INPUT SEND
 ============================================================ */
@@ -92,6 +105,8 @@ function sendInput() {
   lastE = eNow;
 
   socket.emit(EVENTS.INPUT, { thrust, boost, push });
+
+  return { boost, push };
 }
 
 /* ============================================================
@@ -118,14 +133,12 @@ function animate() {
     for (const p of players.values()) p.update(delta);
 
     if (myPlayer) {
-      const spaceNow = input.isPressed("space");
-      const eNow = input.isPressed("e");
+      const { boost, push } = sendInput();
 
-      if (spaceNow && !lastSpace) myPlayer.triggerJump();
-      if (eNow && !lastE) myPlayer.triggerPush();
+      if (boost && myPlayer) myPlayer.triggerJump();
+      if (push && myPlayer) myPlayer.triggerPush();
 
-      lastSpace = spaceNow;
-      lastE = eNow;
+      camera.update(myPlayer.mesh.position, planet.mesh, myVelocity);
 
       sendInput();
       camera.update(myPlayer.mesh.position, planet.mesh, myVelocity);
