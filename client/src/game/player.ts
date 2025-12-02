@@ -50,6 +50,11 @@ export class Player {
 
   // ========= CLIENT PREDICTION + INTERPOLATION =========
   private simulateMovement(delta: number) {
+    // DEBUG: see what the client actually thinks our velocity is
+    if (this.velocity.length() > 50) {
+      console.log("CLIENT high velocity:", this.velocity.clone());
+    }
+
     // 1) Predict local movement with velocity
     this.mesh.position.x += this.velocity.x * delta;
     this.mesh.position.y += this.velocity.y * delta;
@@ -57,7 +62,7 @@ export class Player {
 
     // 2) Smoothly correct toward server position
     if (this.lerpAlpha < 1) {
-      this.lerpAlpha += delta * 10; // tune smoothing speed
+      this.lerpAlpha += delta * 10;
       this.mesh.position.lerp(this.serverPos, this.lerpAlpha);
     }
   }

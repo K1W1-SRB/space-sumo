@@ -1,10 +1,8 @@
-// main.ts
 import * as THREE from "three";
 import { io } from "socket.io-client";
 
 import { SceneBuilder } from "./game/scene-builder.js";
 import { GameCamera } from "./game/camera";
-// import { Planet } from "./game/planet"; // <- no longer needed
 import { Input } from "./game/input";
 import { Player } from "./game/player";
 import { PowerupSystem } from "./game/power-up";
@@ -19,9 +17,7 @@ enum ClientState {
 
 let STATE: ClientState = ClientState.TITLE;
 
-/* ============================================================
-    UI / TITLE SCREEN
-============================================================ */
+/* UI */
 const titleEl = document.getElementById("title-screen")!;
 const infoEl = document.getElementById("info-screen")!;
 const playBtn = document.getElementById("play-btn")!;
@@ -29,47 +25,35 @@ const infoBtn = document.getElementById("info-btn")!;
 const mainBtn = document.getElementById("main-btn")!;
 const gameContainer = document.getElementById("game-container")!;
 
-/* ============================================================
-    SOCKET SETUP
-============================================================ */
+/* SOCKET */
 const socket = io("http://localhost:3000", {
   autoConnect: false,
 });
 
-// 🔥 CRITICAL: move into GAME when connected
 socket.on("connect", () => {
   console.log("Connected to server, entering GAME state");
   STATE = ClientState.GAME;
 });
 
-/* ============================================================
-    SCENE + RENDERER + BACKGROUND
-============================================================ */
+/* SCENE SETUP */
 const builder = new SceneBuilder(gameContainer);
 const scene = builder.scene;
 const renderer = builder.renderer;
 
-/* ============================================================
-    GAME OBJECTS / SYSTEMS
-============================================================ */
+/* GAME OBJECTS */
 const camera = new GameCamera();
 const planet = builder.planet;
 const input = new Input();
 
 const players = new Map<string, Player>();
 const powerups = new PowerupSystem(scene);
-
 const events = new EventHandlers(socket, scene, players, powerups, planet);
 
-/* ============================================================
-    PLAY BUTTON → CONNECT
-============================================================ */
+/* UI EVENTS */
 playBtn.onclick = () => {
   STATE = ClientState.CONNECTING;
-
   titleEl.style.display = "none";
   gameContainer.style.display = "block";
-
   socket.connect();
 };
 
@@ -83,9 +67,7 @@ mainBtn.onclick = () => {
   infoEl.style.display = "none";
 };
 
-/* ============================================================
-    INPUT SEND
-============================================================ */
+/* INPUT HANDLING */
 let lastSpace = false;
 let lastE = false;
 
@@ -109,9 +91,7 @@ function sendInput() {
   return { boost, push };
 }
 
-/* ============================================================
-    GAME LOOP
-============================================================ */
+/* MAIN LOOP */
 const clock = new THREE.Clock();
 
 function animate() {
@@ -119,31 +99,28 @@ function animate() {
   const delta = clock.getDelta();
 
   if (STATE === ClientState.GAME) {
-    // Update core world
     planet.update(delta);
     builder.updateBackground(delta);
     powerups.update(delta, clock.elapsedTime);
 
-    // PLAYER + CAMERA
     const myPlayer = events.myPlayer;
     const myVelocity = events.myVelocity;
-    if (events.myPlayer) {
-      console.log("Player world position:", events.myPlayer.mesh.position);
+
+    // Update all players (client animation + prediction)
+    for (const p of players.values()) {
+      p.update(delta);
     }
-    for (const p of players.values()) p.update(delta);
 
     if (myPlayer) {
       const { boost, push } = sendInput();
 
-      if (boost && myPlayer) myPlayer.triggerJump();
-      if (push && myPlayer) myPlayer.triggerPush();
+      // Local visual feedback
+      if (boost) myPlayer.triggerJump();
+      if (push) myPlayer.triggerPush();
 
-      camera.update(myPlayer.mesh.position, planet.mesh, myVelocity);
-
-      sendInput();
+      // Camera follows predicted position
       camera.update(myPlayer.mesh.position, planet.mesh, myVelocity);
     } else {
-      // fallback cam position if we somehow have no local player
       camera.instance.position.set(0, 5, 15);
       camera.instance.lookAt(0, 0, 0);
     }

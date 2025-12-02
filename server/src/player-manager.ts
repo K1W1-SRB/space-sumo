@@ -116,12 +116,10 @@ export class PlayerManager {
     for (const player of this.players.values()) {
       const { body, input } = player;
 
-      // --- Gravity towards planet center ---
+      // --- Gravity frame / basis ---
       const dirToCenter = this.planet.position.vsub(body.position);
-      const gravityDir = dirToCenter.unit();
-
-      // --- Tangent frame (movement along surface) ---
-      const up = gravityDir.scale(-1); // player local up (away from planet)
+      const gravityDir = dirToCenter.unit(); // toward planet
+      const up = gravityDir.scale(-1); // away from planet
 
       const east = new CANNON.Vec3(1, 0, 0);
       const north = new CANNON.Vec3(0, 0, 1);
@@ -131,10 +129,9 @@ export class PlayerManager {
         right = up.cross(north);
       }
       right = right.unit();
-
       const forward = right.cross(up).unit();
 
-      // --- Resolve active powerup flags for this tick ---
+      // --- Powerups (only mass + ghost matter here) ---
       const effect = this.effects.get(player.id);
       let massUpActive = false;
       let ghostActive = false;
@@ -158,51 +155,36 @@ export class PlayerManager {
         }
       }
 
-      // --- Input thrust (WASD) ---
+      // --- Thrust (WASD) ---
       const [tx, , tz] = input.thrust;
-      const hasInput = Math.abs(tx) > 0 || Math.abs(tz) > 0;
-
-      if (hasInput) {
-        // build movement direction in tangent space
+      if (Math.abs(tx) > 0 || Math.abs(tz) > 0) {
         const moveDir = forward.scale(tz).vadd(right.scale(tx));
-
-        // normalize so diagonals aren't faster
         const len = moveDir.length();
-        if (len > 1e-4) {
-          moveDir.scale(1 / len, moveDir);
-        }
+        if (len > 1e-4) moveDir.scale(1 / len, moveDir);
 
         const MOVE_FORCE = THRUST_FORCE * 0.35;
         body.applyForce(moveDir.scale(MOVE_FORCE), body.position);
       }
 
-      // --- Boost (space, one-shot, latched) ---
-      let justBoosted = false;
+      // --- BOOST (one-shot) ---
+      if (input.boost) {
+        input.boost = false;
 
-      if (player.input.boost) {
-        player.input.boost = false; // consume
-
-        const up = gravityDir.scale(-1); // correct upward/outward direction
-        const power = BOOST_IMPULSE * (superBoostActive ? 3 : 1);
-
+        const power = BOOST_IMPULSE * (superBoostActive ? 2.5 : 1);
         body.applyImpulse(up.scale(power), body.position);
 
-        justBoosted = true;
+        // tell game-loop we boosted THIS tick
+        (body as any)._justBoosted = true;
+
+        console.log("BOOST impulse applied", player.id, body.velocity);
       }
 
+      // --- Gravity AFTER boost ---
       body.applyForce(gravityDir.scale(GRAVITY_STRENGTH), body.position);
 
-      if (justBoosted) {
-        // Reduce gravity for 2 frames after boost
-        body.applyForce(
-          gravityDir.scale(-GRAVITY_STRENGTH * 0.6),
-          body.position
-        );
-      }
-
-      // --- Active Push (E, one-shot, latched) ---
-      if (player.input.push) {
-        player.input.push = false; // consume
+      // --- PUSH ability ---
+      if (input.push) {
+        input.push = false;
 
         if (now - player.lastPushAt >= PUSH_ABILITY_COOLDOWN_MS) {
           player.lastPushAt = now;
@@ -238,32 +220,18 @@ export class PlayerManager {
         }
       }
 
-      // --- Reset per-tick overrides if effect not active ---
+      // --- Reset mass / collisions if effects ended ---
       if (!massUpActive) body.mass = 1;
       if (!ghostActive) body.collisionResponse = true;
+      // reset boost flag for next tick
+      (body as any)._justBoosted = false;
 
-      // --- Tangential damping + max speed clamp ---
-      const vel = body.velocity;
-      const speed = vel.length();
-      if (speed > 1e-3) {
-        const BASE_MAX_SPEED = 12;
-
-        const maxSpeed = justBoosted ? Infinity : BASE_MAX_SPEED;
-        justBoosted = true;
-
-        if (speed > maxSpeed) {
-          vel.scale(maxSpeed / speed, vel);
-        }
-
-        if (!justBoosted) {
-          vel.scale(DAMPING, vel);
-        }
-      }
+      // --- Single global damping, no max-speed clamp ---
+      body.velocity.scale(DAMPING, body.velocity);
     }
   }
 
   getStates(): PlayerState[] {
-    // IMPORTANT: do NOT mutate velocity here. Just read it.
     return Array.from(this.players.values()).map(({ id, body, color }) => ({
       id,
       position: [body.position.x, body.position.y, body.position.z],

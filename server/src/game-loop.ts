@@ -72,18 +72,32 @@ export function startGameLoops(
         continue;
       }
 
-      // Clamp to planet surface
+      // --- Surface clamping (bounce-free, boost-friendly) ---
       const FEET_OFFSET = PLAYER_RADIUS * 0.6;
       const target = planetR + PLAYER_RADIUS - FEET_OFFSET;
-      if (Math.abs(dist - target) > 1e-4) {
-        const n = rel.scale(1 / dist); // unit
+
+      // Distance error: negative = inside planet, positive = above surface
+      const distError = dist - target;
+
+      // Only clamp when the player is actually INSIDE the surface
+      // (distError < -EPS). When above or roughly on surface → no clamp.
+      const DIST_EPS = 0.02;
+
+      if (distError < -DIST_EPS) {
+        // Inside the planet -> push back out to the surface
+        const n = rel.scale(1 / dist); // outward normal
         body.position = planet.body.position.vadd(n.scale(target));
 
-        // remove radial velocity so they move tangentially
-        const v = body.velocity;
-        const vn = n.scale(v.dot(n));
-        v.vsub(vn, v);
+        // Remove ONLY inward radial velocity (so they don't keep sinking)
+        const radialVel = body.velocity.dot(n);
+        if (radialVel < 0) {
+          const vn = n.scale(radialVel);
+          body.velocity.vsub(vn, body.velocity);
+        }
       }
+      // If distError >= -DIST_EPS:
+      // - equal or slightly below: do nothing (small numerical noise)
+      // - >= 0: exactly on or above surface (jump/boost/airborne) → no clamp
     }
 
     for (const id of toEliminate) {

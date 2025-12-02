@@ -63,14 +63,6 @@ export class EventHandlers {
     // PLAYER STATE SYNC
     // ============================================================
     this.socket.on(EVENTS.STATE, (states: PlayerState[]) => {
-      // If socket.id isn't ready yet, skip this tick
-
-      console.log(
-        "ALL STATE IDs:",
-        states.map((s) => s.id)
-      );
-      console.log("MY CLIENT ID:", this.socket.id);
-
       if (!this.socket.id) return;
 
       const present = new Set<string>();

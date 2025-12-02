@@ -7,7 +7,7 @@ export const PLAYER_RADIUS = 0.5;
 export const GRAVITY_STRENGTH = 20; // toward planet center (N per kg-ish)
 export const THRUST_FORCE = 65; // tangent thrust
 export const DAMPING = 0.92;
-export const BOOST_IMPULSE = 1000; // instant impulse away from planet
+export const BOOST_IMPULSE = 10; // instant impulse away from planet
 
 export const OUTZONE_RADIUS = PLANET_RADIUS + 25;
 
