@@ -72,11 +72,6 @@ export class PlayerManager {
     }
   }
 
-  /**
-   * Network → server input.
-   * - Thrust is continuous: always overwritten.
-   * - Boost/push are one-shot: we only set them when true, never overwrite with false.
-   */
   applyInput(id: string, input: PlayerInput) {
     const player = this.players.get(id);
     if (!player) return;
@@ -118,8 +113,8 @@ export class PlayerManager {
 
       // --- Gravity frame / basis ---
       const dirToCenter = this.planet.position.vsub(body.position);
-      const gravityDir = dirToCenter.unit(); // toward planet
-      const up = gravityDir.scale(-1); // away from planet
+      const gravityDir = dirToCenter.unit();
+      const up = gravityDir.scale(-1);
 
       const east = new CANNON.Vec3(1, 0, 0);
       const north = new CANNON.Vec3(0, 0, 1);
@@ -131,7 +126,6 @@ export class PlayerManager {
       right = right.unit();
       const forward = right.cross(up).unit();
 
-      // --- Powerups (only mass + ghost matter here) ---
       const effect = this.effects.get(player.id);
       let massUpActive = false;
       let ghostActive = false;
@@ -157,7 +151,6 @@ export class PlayerManager {
         }
       }
 
-      // --- Thrust (WASD) ---
       const [tx, , tz] = input.thrust;
       if (Math.abs(tx) > 0 || Math.abs(tz) > 0) {
         const moveDir = forward.scale(tz).vadd(right.scale(tx));
@@ -168,23 +161,19 @@ export class PlayerManager {
         body.applyForce(moveDir.scale(MOVE_FORCE), body.position);
       }
 
-      // --- BOOST (one-shot) ---
       if (input.boost) {
         input.boost = false;
 
         const power = BOOST_IMPULSE * (superBoostActive ? 2.5 : 1);
         body.applyImpulse(up.scale(power), body.position);
 
-        // tell game-loop we boosted THIS tick
         (body as any)._justBoosted = true;
 
         console.log("BOOST impulse applied", player.id, body.velocity);
       }
 
-      // --- Gravity AFTER boost ---
       body.applyForce(gravityDir.scale(GRAVITY_STRENGTH), body.position);
 
-      // --- PUSH ability ---
       if (input.push) {
         input.push = false;
 
@@ -222,7 +211,6 @@ export class PlayerManager {
         }
       }
 
-      // --- Reset mass / collisions if effects ended ---
       if (!massUpActive && body.mass !== 1) {
         body.mass = 1;
         body.updateMassProperties();
@@ -232,7 +220,6 @@ export class PlayerManager {
         body.collisionFilterMask = 1;
       }
 
-      // --- Single global damping, no max-speed clamp ---
       body.velocity.scale(DAMPING, body.velocity);
     }
   }

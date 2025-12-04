@@ -4,15 +4,12 @@ import { PLAYER_RADIUS } from "../../../packages/shared/src/index.js";
 export class Player {
   mesh: THREE.Group;
 
-  // Server-authoritative state
   serverPos = new THREE.Vector3();
   velocity = new THREE.Vector3();
   activeEffect: { type: string; until: number } | null = null;
 
-  // Prediction blending
   private lerpAlpha = 1;
 
-  // body parts
   private head!: THREE.Mesh;
   private body!: THREE.Mesh;
 
@@ -26,7 +23,6 @@ export class Player {
   private time = 0;
   private isMoving = false;
 
-  // NEW ANIMATION STATE
   private isJumping = false;
   private jumpTimer = 0;
 
@@ -40,35 +36,27 @@ export class Player {
     this.buildChibiLowPoly(color);
   }
 
-  // ========= SERVER → CLIENT UPDATE =========
   setServerState(pos: [number, number, number], vel: THREE.Vector3) {
     this.serverPos.set(pos[0], pos[1], pos[2]);
     this.velocity.copy(vel);
 
-    // reset interpolation window
     this.lerpAlpha = 0;
   }
 
-  // ========= CLIENT PREDICTION + INTERPOLATION =========
   private simulateMovement(delta: number) {
-    // DEBUG: see what the client actually thinks our velocity is
     if (this.velocity.length() > 50) {
       console.log("CLIENT high velocity:", this.velocity.clone());
     }
 
-    // 1) Predict local movement with velocity
     this.mesh.position.x += this.velocity.x * delta;
     this.mesh.position.y += this.velocity.y * delta;
     this.mesh.position.z += this.velocity.z * delta;
 
-    // 2) Smoothly correct toward server position
     if (this.lerpAlpha < 1) {
       this.lerpAlpha += delta * 10;
       this.mesh.position.lerp(this.serverPos, this.lerpAlpha);
     }
   }
-
-  // EFFECTS
 
   private setGhostOpacity(op: number) {
     this.mesh.traverse((child) => {
@@ -96,7 +84,6 @@ export class Player {
 
   private updateEffectVisuals(delta: number) {
     if (!this.activeEffect) {
-      // reset all visuals when no effect is active
       this.mesh.scale.set(1, 1, 1);
       this.resetOpacity();
       return;
@@ -120,7 +107,6 @@ export class Player {
     }
   }
 
-  // ========= ROTATION =========
   updateRotation(vel: THREE.Vector3, planetPos: THREE.Vector3) {
     const up = this.mesh.position.clone().sub(planetPos).normalize();
 
@@ -152,14 +138,11 @@ export class Player {
     this.isMoving = v.length() > 0.4;
   }
 
-  // ========= UPDATE LOOP =========
   update(delta: number) {
     this.time += delta;
 
-    // Apply movement prediction
     this.simulateMovement(delta);
 
-    // WALK ANIMATION
     const speed = this.isMoving ? 1 : 0;
     const freq = 5 * speed;
 
@@ -179,13 +162,10 @@ export class Player {
       : 0;
     this.head.position.y = PLAYER_RADIUS * 1.6 + headBob;
 
-    // SPECIAL ANIMS
     this.updateJump(delta);
     this.updatePush(delta);
     this.updateEffectVisuals(delta);
   }
-
-  // ====== ANIMATIONS (UNCHANGED) ======
 
   private updateJump(delta: number) {
     if (!this.isJumping) return;
@@ -236,8 +216,6 @@ export class Player {
     }
   }
 
-  // ====== TRIGGERS ======
-
   triggerJump() {
     if (!this.isJumping) {
       this.isJumping = true;
@@ -265,7 +243,6 @@ export class Player {
     });
   }
 
-  // ========= MODEL BUILDING CODE (UNCHANGED) =========
   private flat(color: string) {
     return new THREE.MeshStandardMaterial({
       color,

@@ -16,7 +16,7 @@ export class Input {
 
   private handleKey(event: KeyboardEvent, isPressed: boolean) {
     let key = event.key.toLowerCase();
-    if (key === " ") key = "space"; // map spacebar to our "space" key
+    if (key === " ") key = "space";
     if (this.keys[key] !== undefined) {
       this.keys[key] = isPressed;
     }

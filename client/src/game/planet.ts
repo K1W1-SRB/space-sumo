@@ -7,22 +7,18 @@ export class Planet {
   constructor(scene: THREE.Scene) {
     const radius = PLANET_RADIUS;
 
-    // Start with low-poly sphere
-    const geo = new THREE.IcosahedronGeometry(radius, 2); // subdivision 2 = faceted, not smooth
+    const geo = new THREE.IcosahedronGeometry(radius, 2);
 
-    // Voxel-ish deformation
     const position = geo.attributes.position;
     const vertex = new THREE.Vector3();
 
     for (let i = 0; i < position.count; i++) {
       vertex.fromBufferAttribute(position, i);
 
-      // Normalize to get direction
       const dir = vertex.clone().normalize();
 
-      // Apply chunky "voxel" height steps
-      const noise = Math.random() * 0.15 - 0.07; // small random variation
-      const stepped = Math.round(noise * 5) / 5; // snap to voxel-like steps
+      const noise = Math.random() * 0.15 - 0.07;
+      const stepped = Math.round(noise * 5) / 5;
 
       const newRadius = radius + stepped * radius * 0.3;
 
@@ -30,10 +26,10 @@ export class Planet {
       position.setXYZ(i, vertex.x, vertex.y, vertex.z);
     }
 
-    geo.computeVertexNormals(); // but Flat shading will override smooths
+    geo.computeVertexNormals();
 
     const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color("#d1c5baff"), // base sand tone
+      color: new THREE.Color("#d1c5baff"),
       flatShading: true,
       bumpScale: 5,
       roughness: 1,

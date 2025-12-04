@@ -1,5 +1,4 @@
 export interface PlayerInput {
-  /** Tangent thrust: [right, up(ignored), forward] */
   thrust: [number, number, number];
   boost: boolean;
   push?: boolean;

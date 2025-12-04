@@ -34,19 +34,12 @@ export class EventHandlers {
   }
 
   private registerEvents() {
-    // ============================================================
-    // CONNECTION
-    // ============================================================
     this.socket.on("connect", () => {
       console.log("Connected to server:", this.socket.id);
 
-      // reset local player reference (fresh connection/HMR/etc)
       this.myPlayer = null;
     });
 
-    // ============================================================
-    // POWERUPS
-    // ============================================================
     this.socket.on("POWERUP_SPAWN", (data) => {
       this.powerups.spawn(data.id, data.type, data.position);
     });
@@ -59,9 +52,6 @@ export class EventHandlers {
       this.powerups.syncState(list);
     });
 
-    // ============================================================
-    // PLAYER STATE SYNC
-    // ============================================================
     this.socket.on(EVENTS.STATE, (states: PlayerState[]) => {
       if (!this.socket.id) return;
 
@@ -70,13 +60,11 @@ export class EventHandlers {
       for (const s of states) {
         let player = this.players.get(s.id);
 
-        // Create new player if it doesn't exist yet
         if (!player) {
           player = new Player(this.scene, s.color);
           this.players.set(s.id, player);
         }
 
-        // Apply position / anim updates
         const vel = new THREE.Vector3(...s.velocity);
         player.setServerState(s.position, vel);
         player.updateRotation(vel, this.planet.mesh.position);
@@ -91,7 +79,6 @@ export class EventHandlers {
         present.add(s.id);
       }
 
-      // Clean up missing players
       for (const id of Array.from(this.players.keys())) {
         if (!present.has(id)) {
           const p = this.players.get(id);
@@ -105,9 +92,6 @@ export class EventHandlers {
       }
     });
 
-    // ============================================================
-    // PLAYER ELIMINATED
-    // ============================================================
     this.socket.on(EVENTS.ELIMINATED, ({ id }) => {
       const p = this.players.get(id);
       if (p) {

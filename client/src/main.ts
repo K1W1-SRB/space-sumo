@@ -25,7 +25,6 @@ const infoBtn = document.getElementById("info-btn")!;
 const mainBtn = document.getElementById("main-btn")!;
 const gameContainer = document.getElementById("game-container")!;
 
-/* SOCKET */
 const socket = io("http://localhost:3000", {
   autoConnect: false,
 });
@@ -35,12 +34,10 @@ socket.on("connect", () => {
   STATE = ClientState.GAME;
 });
 
-/* SCENE SETUP */
 const builder = new SceneBuilder(gameContainer);
 const scene = builder.scene;
 const renderer = builder.renderer;
 
-/* GAME OBJECTS */
 const camera = new GameCamera();
 const planet = builder.planet;
 const input = new Input();
@@ -49,7 +46,6 @@ const players = new Map<string, Player>();
 const powerups = new PowerupSystem(scene);
 const events = new EventHandlers(socket, scene, players, powerups, planet);
 
-/* UI EVENTS */
 playBtn.onclick = () => {
   STATE = ClientState.CONNECTING;
   titleEl.style.display = "none";
@@ -67,7 +63,6 @@ mainBtn.onclick = () => {
   infoEl.style.display = "none";
 };
 
-/* INPUT HANDLING */
 let lastSpace = false;
 let lastE = false;
 
@@ -91,7 +86,6 @@ function sendInput() {
   return { boost, push };
 }
 
-/* MAIN LOOP */
 const clock = new THREE.Clock();
 
 function animate() {
@@ -106,7 +100,6 @@ function animate() {
     const myPlayer = events.myPlayer;
     const myVelocity = events.myVelocity;
 
-    // Update all players (client animation + prediction)
     for (const p of players.values()) {
       p.update(delta);
     }
@@ -114,11 +107,9 @@ function animate() {
     if (myPlayer) {
       const { boost, push } = sendInput();
 
-      // Local visual feedback
       if (boost) myPlayer.triggerJump();
       if (push) myPlayer.triggerPush();
 
-      // Camera follows predicted position
       camera.update(myPlayer.mesh.position, planet.mesh, myVelocity);
     } else {
       camera.instance.position.set(0, 5, 15);

@@ -3,7 +3,7 @@ import { EVENTS, PlayerState } from "../../../packages/shared/src/index.js";
 
 const socket = io("http://localhost:3000", {
   autoConnect: false,
-  transports: ["websocket", "polling"], // Recommended for CORS issues
+  transports: ["websocket", "polling"],
 });
 
 type StateHandler = (states: PlayerState[]) => void;
@@ -28,7 +28,6 @@ socket.on("connect", () => {
   console.log("✅ Connected to server:", socket.id);
 });
 
-// ✅ use the shared constant
 socket.on(EVENTS.STATE, (states: PlayerState[]) => {
   if (onState) onState(states);
 });

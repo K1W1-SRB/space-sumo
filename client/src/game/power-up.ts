@@ -64,7 +64,6 @@ export class PowerupSystem {
   ) {
     const active = new Set(list.map((p) => p.id));
 
-    // Create or update
     for (const pu of list) {
       if (!this.powerups.has(pu.id)) {
         this.spawn(pu.id, pu.type, pu.position);
@@ -73,7 +72,6 @@ export class PowerupSystem {
       }
     }
 
-    // Remove old ones
     for (const id of this.powerups.keys()) {
       if (!active.has(id)) {
         this.remove(id);
