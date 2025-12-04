@@ -81,8 +81,8 @@ export class EventHandlers {
         player.setServerState(s.position, vel);
         player.updateRotation(vel, this.planet.mesh.position);
         player.updateAnimationFromVelocity(vel);
+        player.applyEffect(s.effect);
 
-        // 🔥 Identify our local player *every tick*, not only on creation
         if (s.id === this.socket.id) {
           this.myPlayer = player;
           this.myVelocity.copy(vel);

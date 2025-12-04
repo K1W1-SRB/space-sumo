@@ -7,6 +7,7 @@ export class Player {
   // Server-authoritative state
   serverPos = new THREE.Vector3();
   velocity = new THREE.Vector3();
+  activeEffect: { type: string; until: number } | null = null;
 
   // Prediction blending
   private lerpAlpha = 1;
@@ -64,6 +65,58 @@ export class Player {
     if (this.lerpAlpha < 1) {
       this.lerpAlpha += delta * 10;
       this.mesh.position.lerp(this.serverPos, this.lerpAlpha);
+    }
+  }
+
+  // EFFECTS
+
+  private setGhostOpacity(op: number) {
+    this.mesh.traverse((child) => {
+      if ((child as any).material) {
+        const mat = (child as any).material;
+        mat.transparent = true;
+        mat.opacity = op;
+      }
+    });
+  }
+
+  private resetOpacity() {
+    this.mesh.traverse((child) => {
+      if ((child as any).material) {
+        const mat = (child as any).material;
+        mat.transparent = false;
+        mat.opacity = 1;
+      }
+    });
+  }
+
+  applyEffect(effect: { type: string; until: number } | null) {
+    this.activeEffect = effect;
+  }
+
+  private updateEffectVisuals(delta: number) {
+    if (!this.activeEffect) {
+      // reset all visuals when no effect is active
+      this.mesh.scale.set(1, 1, 1);
+      this.resetOpacity();
+      return;
+    }
+
+    const ef = this.activeEffect;
+
+    switch (ef.type) {
+      case "mass_up":
+        this.mesh.scale.set(1.25, 1.25, 1.25);
+        break;
+
+      case "ghost":
+        this.setGhostOpacity(0.35);
+        break;
+
+      case "super_boost":
+        const pulse = Math.sin(performance.now() * 0.02) * 0.15 + 1;
+        this.mesh.scale.set(pulse, pulse, pulse);
+        break;
     }
   }
 
@@ -129,6 +182,7 @@ export class Player {
     // SPECIAL ANIMS
     this.updateJump(delta);
     this.updatePush(delta);
+    this.updateEffectVisuals(delta);
   }
 
   // ====== ANIMATIONS (UNCHANGED) ======

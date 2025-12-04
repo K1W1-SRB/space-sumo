@@ -57,7 +57,7 @@ export class PowerUpManager {
     for (const player of playerManager.players.values()) {
       for (const pu of this.powerups.values()) {
         const dist = player.body.position.distanceTo(pu.body.position);
-        if (dist < 1.0) {
+        if (dist < 1.5) {
           this.remove(pu.id);
           playerManager.grantPowerup(player.id, pu.type);
           return pu;

@@ -97,15 +97,15 @@ export class PlayerManager {
 
     switch (type) {
       case "super_boost":
-        this.effects.set(id, { type, until: now + 3000 });
+        this.effects.set(id, { type, until: now + 10000 });
         break;
 
       case "mass_up":
-        this.effects.set(id, { type, until: now + 5000 });
+        this.effects.set(id, { type, until: now + 10000 });
         break;
 
       case "ghost":
-        this.effects.set(id, { type, until: now + 1000 });
+        this.effects.set(id, { type, until: now + 10000 });
         break;
     }
   }
@@ -144,10 +144,12 @@ export class PlayerManager {
           if (effect.type === "mass_up") {
             massUpActive = true;
             body.mass = 2;
+            body.updateMassProperties();
           }
           if (effect.type === "ghost") {
             ghostActive = true;
             body.collisionResponse = false;
+            body.collisionFilterMask = 0;
           }
           if (effect.type === "super_boost") {
             superBoostActive = true;
@@ -221,10 +223,14 @@ export class PlayerManager {
       }
 
       // --- Reset mass / collisions if effects ended ---
-      if (!massUpActive) body.mass = 1;
-      if (!ghostActive) body.collisionResponse = true;
-      // reset boost flag for next tick
-      (body as any)._justBoosted = false;
+      if (!massUpActive && body.mass !== 1) {
+        body.mass = 1;
+        body.updateMassProperties();
+      }
+      if (!ghostActive) {
+        body.collisionResponse = true;
+        body.collisionFilterMask = 1;
+      }
 
       // --- Single global damping, no max-speed clamp ---
       body.velocity.scale(DAMPING, body.velocity);
@@ -232,11 +238,21 @@ export class PlayerManager {
   }
 
   getStates(): PlayerState[] {
-    return Array.from(this.players.values()).map(({ id, body, color }) => ({
-      id,
-      position: [body.position.x, body.position.y, body.position.z],
-      velocity: [body.velocity.x, body.velocity.y, body.velocity.z],
-      color,
-    }));
+    return Array.from(this.players.values()).map(({ id, body, color }) => {
+      const eff = this.effects.get(id);
+
+      return {
+        id,
+        position: [body.position.x, body.position.y, body.position.z],
+        velocity: [body.velocity.x, body.velocity.y, body.velocity.z],
+        color,
+        effect: eff
+          ? {
+              type: eff.type,
+              until: eff.until,
+            }
+          : null,
+      };
+    });
   }
 }
