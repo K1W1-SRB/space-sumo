@@ -34,6 +34,24 @@ export const io = new Server(httpServer, {
   },
 });
 
+io.use((socket, next) => {
+  const auth = socket.handshake.auth as any;
+  const rawUsername = auth?.username;
+
+  if (!rawUsername || typeof rawUsername !== "string") {
+    return next(new Error("USERNAME_REQUIRED"));
+  }
+
+  const username = rawUsername.trim();
+  if (!username) {
+    return next(new Error("USERNAME_REQUIRED"));
+  }
+
+  // store on socket for later use
+  (socket.data as any).username = username;
+  next();
+});
+
 initSockets(io);
 startGameLoops(io, { world, planet, playerManager, powerUpManager });
 

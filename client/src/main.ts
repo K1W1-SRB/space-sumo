@@ -20,19 +20,71 @@ let STATE: ClientState = ClientState.TITLE;
 /* UI */
 const titleEl = document.getElementById("title-screen")!;
 const infoEl = document.getElementById("info-screen")!;
-const playBtn = document.getElementById("play-btn")!;
 const infoBtn = document.getElementById("info-btn")!;
 const mainBtn = document.getElementById("main-btn")!;
 const gameContainer = document.getElementById("game-container")!;
+const loginBtn = document.getElementById("login-btn")!;
+const usernameDisplay = document.getElementById("username-display")!;
+const openLobbyBtn = document.getElementById("open-lobby-btn")!;
+const lobbyUI = document.getElementById("lobby-ui")!;
+const createLobbyBtn = document.getElementById("create-lobby-btn")!;
+const joinLobbyBtn = document.getElementById("join-lobby-btn")!;
+const lobbyCodeInput = document.getElementById(
+  "lobby-code-input"
+) as HTMLInputElement;
+const lobbyBackBtn = document.getElementById("lobby-back-btn")!;
 
 const socket = io("http://localhost:3000", {
   autoConnect: false,
 });
 
+function toast(msg: string) {
+  const el = document.getElementById("toast")!;
+  el.textContent = msg;
+  el.style.opacity = "1";
+
+  setTimeout(() => {
+    el.style.opacity = "0";
+  }, 2000);
+}
+
+type LobbyAction = { type: "create" } | { type: "join"; code: string };
+
+let pendingLobbyAction: LobbyAction | null = null;
+let currentLobbyCode: string | null = null;
+let USERNAME: string | null = null;
+
+// ---- SOCKET EVENTS ----
+
 socket.on("connect", () => {
   console.log("Connected to server, entering GAME state");
   STATE = ClientState.GAME;
+
+  // After connecting, perform the lobby action (create or join)
+  if (pendingLobbyAction) {
+    if (pendingLobbyAction.type === "create") {
+      socket.emit("LOBBY_CREATE");
+    } else {
+      socket.emit("LOBBY_JOIN", { code: pendingLobbyAction.code });
+    }
+  }
 });
+
+socket.on("LOBBY_CREATED", ({ code }) => {
+  currentLobbyCode = code;
+  toast(`Lobby created: ${code}`);
+});
+
+socket.on("LOBBY_JOINED", ({ code }) => {
+  currentLobbyCode = code;
+  toast(`Joined lobby: ${code}`);
+});
+
+socket.on("LOBBY_ERROR", ({ message }) => {
+  toast(`Error: ${message}`);
+});
+
+// ---- SCENE SETUP ----
 
 const builder = new SceneBuilder(gameContainer);
 const scene = builder.scene;
@@ -46,11 +98,16 @@ const players = new Map<string, Player>();
 const powerups = new PowerupSystem(scene);
 const events = new EventHandlers(socket, scene, players, powerups, planet);
 
-playBtn.onclick = () => {
-  STATE = ClientState.CONNECTING;
-  titleEl.style.display = "none";
-  gameContainer.style.display = "block";
-  socket.connect();
+// ---- UI HANDLERS ----
+
+loginBtn.onclick = async () => {
+  // Replace this with real OAuth popup later
+  const name = prompt("Enter your OAuth display name:");
+
+  if (!name) return;
+
+  USERNAME = name.trim();
+  usernameDisplay.textContent = `Logged in as: ${USERNAME}`;
 };
 
 infoBtn.onclick = () => {
@@ -62,6 +119,57 @@ mainBtn.onclick = () => {
   titleEl.style.display = "flex";
   infoEl.style.display = "none";
 };
+
+openLobbyBtn.onclick = () => {
+  openLobbyBtn.style.display = "none";
+  lobbyUI.style.display = "flex";
+};
+
+// Hide lobby menu
+lobbyBackBtn.onclick = () => {
+  lobbyUI.style.display = "none";
+  openLobbyBtn.style.display = "block";
+};
+
+createLobbyBtn.onclick = () => {
+  if (!USERNAME) {
+    alert("You must log in first!");
+    return;
+  }
+  pendingLobbyAction = { type: "create" };
+
+  STATE = ClientState.CONNECTING;
+  titleEl.style.display = "none";
+  gameContainer.style.display = "block";
+
+  socket.auth = { username: USERNAME };
+  socket.connect();
+};
+
+joinLobbyBtn.onclick = () => {
+  if (!USERNAME) {
+    alert("You must log in first!");
+    return;
+  }
+  const code = lobbyCodeInput.value.trim().toUpperCase();
+
+  if (!code || code.length < 3) {
+    lobbyCodeInput.style.border = "2px solid #ff5555";
+    return;
+  }
+  lobbyCodeInput.style.border = "none";
+
+  pendingLobbyAction = { type: "join", code };
+
+  STATE = ClientState.CONNECTING;
+  titleEl.style.display = "none";
+  gameContainer.style.display = "block";
+
+  socket.auth = { username: USERNAME };
+  socket.connect();
+};
+
+// ---- INPUT + GAME LOOP ----
 
 let lastSpace = false;
 let lastE = false;
