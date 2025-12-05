@@ -2,7 +2,7 @@ import { Server, Socket } from "socket.io";
 import { PlayerManager } from "./player-manager.js";
 import { createWorld } from "./physics-world.js";
 import { PowerUpManager } from "./power-up.js";
-import { EVENTS } from "../../packages/shared/src/index.js";
+import { EVENTS, Lobby } from "../../packages/shared/src/index.js";
 import { Planet } from "./planet.js";
 
 export const world = createWorld();
@@ -10,15 +10,10 @@ export const planet = new Planet(world);
 export const playerManager = new PlayerManager(world, planet);
 export const powerUpManager = new PowerUpManager(world);
 
-// ---- LOBBY TYPES / STATE ----
-
-type Lobby = {
-  code: string;
-  hostId: string; // socket.id of host
-  players: Set<string>; // socket.id of players
-};
-
-const lobbies = new Map<string, Lobby>();
+// ──────────────────────────────────────────
+// LOBBIES
+// ──────────────────────────────────────────
+export const lobbies = new Map<string, Lobby>();
 
 function generateLobbyCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -45,12 +40,15 @@ function broadcastLobbyState(io: Server, lobby: Lobby) {
       const username = (s?.data as any)?.username ?? id;
       return { id, username };
     }),
+    matchRunning: lobby.matchRunning,
   };
 
   io.to(lobby.code).emit("LOBBY_STATE", payload);
 }
 
-// ---- SOCKET SETUP ----
+// ──────────────────────────────────────────
+// SOCKET SETUP
+// ──────────────────────────────────────────
 
 export function initSockets(io: Server) {
   io.on("connection", (socket) => {
@@ -60,20 +58,22 @@ export function initSockets(io: Server) {
     );
 
     const color = randomColor();
-    // NOTE: we still use socket.id for physics/player ids.
+
+    // Players exist globally regardless of lobby
     playerManager.addPlayer(socket.id, color);
 
-    // Immediately send current powerup state
+    // Send initial powerup state
     io.emit("POWERUP_STATE", powerUpManager.getState());
 
-    // ---- LOBBY EVENTS ----
-
+    // ──────────────────────────────────────────
+    // LOBBY CREATE
+    // ──────────────────────────────────────────
     socket.on("LOBBY_CREATE", () => {
-      // If already in a lobby, leave it first
       const existing = getLobbyForSocket(socket.id);
       if (existing) {
         existing.players.delete(socket.id);
         socket.leave(existing.code);
+
         if (existing.players.size === 0) {
           lobbies.delete(existing.code);
         } else {
@@ -86,16 +86,21 @@ export function initSockets(io: Server) {
         code,
         hostId: socket.id,
         players: new Set([socket.id]),
+        matchRunning: false, // IMPORTANT
       };
-      lobbies.set(code, lobby);
 
+      lobbies.set(code, lobby);
       socket.join(code);
+
       socket.emit("LOBBY_CREATED", { code });
       broadcastLobbyState(io, lobby);
 
       console.log(`🎮 Lobby created: ${code} by ${socket.id}`);
     });
 
+    // ──────────────────────────────────────────
+    // LOBBY JOIN
+    // ──────────────────────────────────────────
     socket.on("LOBBY_JOIN", (payload: any) => {
       const rawCode = payload?.code;
       if (!rawCode || typeof rawCode !== "string") {
@@ -111,11 +116,11 @@ export function initSockets(io: Server) {
         return;
       }
 
-      // leave old lobby if present
       const existing = getLobbyForSocket(socket.id);
       if (existing && existing.code !== code) {
         existing.players.delete(socket.id);
         socket.leave(existing.code);
+
         if (existing.players.size === 0) {
           lobbies.delete(existing.code);
         } else {
@@ -125,18 +130,23 @@ export function initSockets(io: Server) {
 
       lobby.players.add(socket.id);
       socket.join(code);
+
       socket.emit("LOBBY_JOINED", { code });
       broadcastLobbyState(io, lobby);
 
       console.log(`👥 ${socket.id} joined lobby ${code}`);
     });
 
+    // ──────────────────────────────────────────
+    // LOBBY LEAVE
+    // ──────────────────────────────────────────
     socket.on("LOBBY_LEAVE", () => {
       const lobby = getLobbyForSocket(socket.id);
       if (!lobby) return;
 
       lobby.players.delete(socket.id);
       socket.leave(lobby.code);
+
       console.log(`👋 ${socket.id} left lobby ${lobby.code}`);
 
       if (lobby.players.size === 0) {
@@ -148,14 +158,47 @@ export function initSockets(io: Server) {
       socket.emit("LOBBY_LEFT", { code: lobby.code });
     });
 
-    // ---- GAME INPUT ----
+    // ──────────────────────────────────────────
+    // MATCH START (HOST ONLY)
+    // ──────────────────────────────────────────
+    socket.on("MATCH_START", () => {
+      const lobby = getLobbyForSocket(socket.id);
+      if (!lobby) return console.log("BAD");
 
+      // Only the host can start the match
+      if (lobby.hostId !== socket.id) {
+        socket.emit("MATCH_ERROR", {
+          message: "Only host can start the match.",
+        });
+        return;
+      }
+
+      // Must have 2+ players
+      if (lobby.players.size < 2) {
+        socket.emit("MATCH_ERROR", {
+          message: "Need at least 2 players to start.",
+        });
+        return;
+      }
+
+      lobby.matchRunning = true;
+
+      // BROADCAST to everyone in the lobby
+      io.to(lobby.code).emit("MATCH_STARTED");
+
+      console.log("MATCH_STARTED sent to lobby:", lobby.code);
+    });
+
+    // ──────────────────────────────────────────
+    // GAME INPUT
+    // ──────────────────────────────────────────
     socket.on(EVENTS.INPUT, (input) => {
       playerManager.applyInput(socket.id, input);
     });
 
-    // ---- DISCONNECT ----
-
+    // ──────────────────────────────────────────
+    // DISCONNECT
+    // ──────────────────────────────────────────
     socket.on("disconnect", () => {
       console.log(`❌ Player disconnected: ${socket.id}`);
       playerManager.removePlayer(socket.id);

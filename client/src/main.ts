@@ -32,6 +32,8 @@ const joinLobbyBtn = document.getElementById("join-lobby-btn")!;
 const lobbyCodeInput = document.getElementById(
   "lobby-code-input"
 ) as HTMLInputElement;
+const lobbyCodeDisplay = document.getElementById("lobby-code-display")!;
+const startMatchBtn = document.getElementById("start-match-btn")!;
 const lobbyBackBtn = document.getElementById("lobby-back-btn")!;
 
 const socket = io("http://localhost:3000", {
@@ -57,8 +59,7 @@ let USERNAME: string | null = null;
 // ---- SOCKET EVENTS ----
 
 socket.on("connect", () => {
-  console.log("Connected to server, entering GAME state");
-  STATE = ClientState.GAME;
+  STATE = ClientState.CONNECTING;
 
   // After connecting, perform the lobby action (create or join)
   if (pendingLobbyAction) {
@@ -75,6 +76,21 @@ socket.on("LOBBY_CREATED", ({ code }) => {
   toast(`Lobby created: ${code}`);
 });
 
+socket.on("LOBBY_STATE", (lobby) => {
+  // Show lobby code
+  lobbyCodeDisplay.textContent = `Lobby Code: ${lobby.code}`;
+
+  // Determine if I am the host
+  const amHost = lobby.hostId === socket.id;
+
+  // Host sees Start button only when 2 or more players
+  if (amHost && lobby.players.length >= 2) {
+    startMatchBtn.style.display = "block";
+  } else {
+    startMatchBtn.style.display = "none";
+  }
+});
+
 socket.on("LOBBY_JOINED", ({ code }) => {
   currentLobbyCode = code;
   toast(`Joined lobby: ${code}`);
@@ -82,6 +98,32 @@ socket.on("LOBBY_JOINED", ({ code }) => {
 
 socket.on("LOBBY_ERROR", ({ message }) => {
   toast(`Error: ${message}`);
+});
+
+socket.on("MATCH_STARTED", () => {
+  console.log("MATCH_STARTED client");
+
+  STATE = ClientState.GAME;
+
+  lobbyUI.style.display = "none";
+  startMatchBtn.style.display = "none";
+  titleEl.style.display = "none";
+  openLobbyBtn.style.display = "none";
+
+  gameContainer.style.display = "block";
+});
+
+socket.on(EVENTS.ROUND_OVER, ({ winnerId }) => {
+  console.log("CLIENT RECEIVED ROUND_OVER");
+
+  STATE = ClientState.TITLE; // stop game rendering
+  console.log(STATE);
+
+  const winScreen = document.getElementById("win-screen")!;
+  const winText = document.getElementById("win-text")!;
+  gameContainer.style.display = "none";
+  winText.textContent = `Winner: ${winnerId}`;
+  winScreen.style.display = "flex";
 });
 
 // ---- SCENE SETUP ----
@@ -139,8 +181,7 @@ createLobbyBtn.onclick = () => {
   pendingLobbyAction = { type: "create" };
 
   STATE = ClientState.CONNECTING;
-  titleEl.style.display = "none";
-  gameContainer.style.display = "block";
+  gameContainer.style.display = "none";
 
   socket.auth = { username: USERNAME };
   socket.connect();
@@ -162,11 +203,14 @@ joinLobbyBtn.onclick = () => {
   pendingLobbyAction = { type: "join", code };
 
   STATE = ClientState.CONNECTING;
-  titleEl.style.display = "none";
-  gameContainer.style.display = "block";
+  gameContainer.style.display = "none";
 
   socket.auth = { username: USERNAME };
   socket.connect();
+};
+
+startMatchBtn.onclick = () => {
+  socket.emit("MATCH_START");
 };
 
 // ---- INPUT + GAME LOOP ----

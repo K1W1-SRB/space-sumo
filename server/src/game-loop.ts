@@ -9,6 +9,7 @@ import {
   OUTZONE_RADIUS,
 } from "../../packages/shared/src/index.js";
 import { PlayerManager } from "./player-manager.js";
+import { lobbies } from "./socket-handler.js";
 
 export function startGameLoops(
   io: Server,
@@ -78,6 +79,25 @@ export function startGameLoops(
 
     for (const id of toEliminate) {
       playerManager.eliminate(id);
+    }
+
+    for (const lobby of lobbies.values()) {
+      if (!lobby.matchRunning) continue;
+
+      // Alive = players still in the physics system AND belonging to the lobby
+      const alive = Array.from(lobby.players).filter((id) =>
+        playerManager.players.has(id)
+      );
+
+      // Not enough players = someone won
+      if (alive.length <= 1) {
+        const winnerId = alive[0] ?? null;
+
+        io.to(lobby.code).emit(EVENTS.ROUND_OVER, { winnerId });
+        console.log(`🏆 ROUND OVER in Lobby ${lobby.code}:`, winnerId);
+
+        lobby.matchRunning = false;
+      }
     }
 
     const now = Date.now();

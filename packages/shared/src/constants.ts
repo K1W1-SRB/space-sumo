@@ -23,4 +23,5 @@ export enum GameState {
   TITLE = "TITLE",
   CONNECTING = "CONNECTING",
   GAME = "GAME",
+  ROUND_OVER = "ROUND_OVER",
 }

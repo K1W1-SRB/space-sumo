@@ -258,3 +258,73 @@ html, body {
     0 6px 0 #b07494,
     0 10px 24px rgba(0, 0, 0, 0.7);
 }
+
+/* WIN SCREEN OVERLAY */
+.win-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 20, 0.85);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* WIN POPUP BOX */
+.win-box {
+  background: linear-gradient(
+    145deg,
+    #c9b6ff 0%,
+    #a895ff 50%,
+    #8b7ad9 100%
+  );
+  padding: 40px 60px;
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(150, 120, 255, 0.4);
+  text-align: center;
+  animation: popIn 0.35s ease-out forwards;
+  transform: scale(0.8);
+  opacity: 0;
+}
+
+@keyframes popIn {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* TITLE */
+.win-title {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 10px;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+
+/* WINNER NAME */
+.win-name {
+  font-size: 1.5rem;
+  color: #1b1b27;
+  font-weight: 700;
+  margin-bottom: 30px;
+}
+
+/* BUTTON */
+.win-btn {
+  font-size: 1.2rem;
+  padding: 14px 32px;
+  margin-top: 10px;
+  background: #bba2ff !important;
+  color: #1b1b27 !important;
+  border-radius: 12px;
+  transition: 0.2s ease;
+}
+
+.win-btn:hover {
+  transform: translateY(-3px);
+  background: #d7c7ff !important;
+}

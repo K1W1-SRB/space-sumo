@@ -49,9 +49,13 @@
     maxlength="5"
     style="padding:12px 20px; border-radius:12px; border:none; font-size:1.1rem; width:180px; text-align:center;"
   />
+  <div id="lobby-code-display" style="font-size:24px; margin-bottom:10px;">
+  Lobby Code: -----
+  </div>
 
   <button id="join-lobby-btn" class="lp-btn">Join Lobby</button>
   <button id="create-lobby-btn" class="lp-btn">Create Lobby</button>
+  <button id="start-match-btn" class="lp-btn">Start Match</button> 
 
   <button id="lobby-back-btn" class="lp-btn" style="background:#8884;">Back</button>
 
@@ -85,6 +89,14 @@
     </div>
   </div>
 <div id="game-container"></div>
+
+<div id="win-screen" class="win-overlay" style="display:none;">
+  <div class="win-box">
+    <h1 class="win-title">Winner!</h1>
+    <p id="win-text" class="win-name"></p>
+    <button id="win-restart-btn" class="lp-btn">Play Again</button>
+  </div>
+</div>
 
   <script type="module" src="/src/main.ts" defer></script>
 </body>

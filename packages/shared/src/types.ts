@@ -18,3 +18,10 @@ export interface PlayerState {
   color: string;
   effect: PlayerEffectState | null;
 }
+
+export type Lobby = {
+  code: string;
+  hostId: string;
+  players: Set<string>;
+  matchRunning: boolean; // NEW
+};
