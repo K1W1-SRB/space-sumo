@@ -114,9 +114,7 @@ socket.on("MATCH_STARTED", () => {
 });
 
 socket.on(EVENTS.ROUND_OVER, ({ winnerId }) => {
-  console.log("CLIENT RECEIVED ROUND_OVER");
-
-  STATE = ClientState.TITLE; // stop game rendering
+  STATE = ClientState.TITLE;
   console.log(STATE);
 
   const winScreen = document.getElementById("win-screen")!;
