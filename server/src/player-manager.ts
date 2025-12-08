@@ -76,7 +76,6 @@ export class PlayerManager {
     const player = this.players.get(id);
     if (!player) return;
 
-    // continuous
     player.input.thrust = input.thrust;
 
     if (input.boost) {
@@ -111,7 +110,6 @@ export class PlayerManager {
     for (const player of this.players.values()) {
       const { body, input } = player;
 
-      // --- Gravity frame / basis ---
       const dirToCenter = this.planet.position.vsub(body.position);
       const gravityDir = dirToCenter.unit();
       const up = gravityDir.scale(-1);

@@ -56,12 +56,9 @@ let pendingLobbyAction: LobbyAction | null = null;
 let currentLobbyCode: string | null = null;
 let USERNAME: string | null = null;
 
-// ---- SOCKET EVENTS ----
-
 socket.on("connect", () => {
   STATE = ClientState.CONNECTING;
 
-  // After connecting, perform the lobby action (create or join)
   if (pendingLobbyAction) {
     if (pendingLobbyAction.type === "create") {
       socket.emit("LOBBY_CREATE");
@@ -77,13 +74,10 @@ socket.on("LOBBY_CREATED", ({ code }) => {
 });
 
 socket.on("LOBBY_STATE", (lobby) => {
-  // Show lobby code
   lobbyCodeDisplay.textContent = `Lobby Code: ${lobby.code}`;
 
-  // Determine if I am the host
   const amHost = lobby.hostId === socket.id;
 
-  // Host sees Start button only when 2 or more players
   if (amHost && lobby.players.length >= 2) {
     startMatchBtn.style.display = "block";
   } else {
@@ -124,8 +118,6 @@ socket.on(EVENTS.ROUND_OVER, ({ winnerId }) => {
   winScreen.style.display = "flex";
 });
 
-// ---- SCENE SETUP ----
-
 const builder = new SceneBuilder(gameContainer);
 const scene = builder.scene;
 const renderer = builder.renderer;
@@ -138,10 +130,7 @@ const players = new Map<string, Player>();
 const powerups = new PowerupSystem(scene);
 const events = new EventHandlers(socket, scene, players, powerups, planet);
 
-// ---- UI HANDLERS ----
-
 loginBtn.onclick = async () => {
-  // Replace this with real OAuth popup later
   const name = prompt("Enter your OAuth display name:");
 
   if (!name) return;
@@ -165,7 +154,6 @@ openLobbyBtn.onclick = () => {
   lobbyUI.style.display = "flex";
 };
 
-// Hide lobby menu
 lobbyBackBtn.onclick = () => {
   lobbyUI.style.display = "none";
   openLobbyBtn.style.display = "block";
@@ -210,8 +198,6 @@ joinLobbyBtn.onclick = () => {
 startMatchBtn.onclick = () => {
   socket.emit("MATCH_START");
 };
-
-// ---- INPUT + GAME LOOP ----
 
 let lastSpace = false;
 let lastE = false;

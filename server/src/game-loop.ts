@@ -84,12 +84,10 @@ export function startGameLoops(
     for (const lobby of lobbies.values()) {
       if (!lobby.matchRunning) continue;
 
-      // Alive = players still in the physics system AND belonging to the lobby
       const alive = Array.from(lobby.players).filter((id) =>
         playerManager.players.has(id)
       );
 
-      // Not enough players = someone won
       if (alive.length <= 1) {
         const winnerId = alive[0] ?? null;
 
