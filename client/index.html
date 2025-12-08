@@ -1,11 +1,106 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Space Sumo 3D</title>
-  </head>
-  <body>
-    <canvas id="game"></canvas>
-    <script type="module" src="./src/main.ts"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Space Sumo 3D</title>
+  <link rel="stylesheet" href="global.css">
+</head>
+
+<body>
+<div id="toast" style="
+  position:fixed; top:20px; left:50%; transform:translateX(-50%);
+  background:#c9b6ff; color:#1b1b27; padding:12px 24px; 
+  border-radius:12px; font-weight:700; opacity:0; 
+  transition:opacity .3s ease-out;
+"></div>
+  <div id="title-screen">
+    
+  <div class="lp-bg"></div>
+
+  <div class="lp-planet">
+    <svg viewBox="0 0 200 200">
+      <polygon points="100,10 150,40 180,100 150,160 100,190 50,160 20,100 50,40"
+        fill="#c9b6ff"/>
+      <polygon points="100,30 130,50 150,100 130,150 100,170 70,150 50,100 70,50"
+        fill="#b0a4e0"/>
+    </svg>
+  </div>
+
+  <div class="lp-stars"></div>
+
+  <div class="lp-title-wrapper">
+    
+    <h1 class="lp-title">SPACE SUMO</h1>
+    <p class="lp-sub">A cosmic knockout</p>
+
+    <button id="open-lobby-btn" class="lp-btn">Play</button>
+    <button id="info-btn" class="lp-btn">Info</button>
+    
+  </div>
+
+  <div id="lobby-ui" style="display:none; flex-direction:column; align-items:center; gap:12px; margin-top:20px;">
+    <button id="login-btn" class="lp-btn">Login with Google</button>
+    <div id="username-display" style="margin-top:10px; font-size:1.2rem;"></div>
+  <input 
+    id="lobby-code-input" 
+    placeholder="Enter lobby code..."
+    maxlength="5"
+    style="padding:12px 20px; border-radius:12px; border:none; font-size:1.1rem; width:180px; text-align:center;"
+  />
+  <div id="lobby-code-display" style="font-size:24px; margin-bottom:10px;">
+  Lobby Code: -----
+  </div>
+
+  <button id="join-lobby-btn" class="lp-btn">Join Lobby</button>
+  <button id="create-lobby-btn" class="lp-btn">Create Lobby</button>
+  <button id="start-match-btn" class="lp-btn">Start Match</button> 
+
+  <button id="lobby-back-btn" class="lp-btn" style="background:#8884;">Back</button>
+
+</div>
+
+</div>
+
+  <div id="info-screen">
+    <div class="lp-bg"></div>
+
+    <div class="lp-planet">
+      <svg viewBox="0 0 200 200">
+        <polygon points="100,10 150,40 180,100 150,160 100,190 50,160 20,100 50,40"
+          fill="#c9b6ff"/>
+        <polygon points="100,30 130,50 150,100 130,150 100,170 70,150 50,100 70,50"
+          fill="#b0a4e0"/>
+      </svg>
+    </div>
+
+    <div class="lp-stars"></div>
+    <div class="info-title-wrapper">
+    <h1>Guide</h1> <p> Your goal is brutally simple: stay on the planet and knock everyone else off. Use movement, boost, and power-ups to outplay other players. If you drift too far from the planet or get launched into space, you're done. </p> <h3>Controls</h3> <p> <strong>W / A / S / D</strong> — Move around the planet’s surface (tangential movement).<br/> <strong>Space</strong> — Boost upward away from the planet for a quick reposition or to avoid being knocked off.<br/> <strong>E</strong> — Push attack (short-range impulse that shoves nearby players). Use it aggressively or to finish someone who’s off-balance. </p> <h3>Win Condition</h3> <p> Last player still on or near the planet wins. Anyone who crosses the out-of-bounds distance is instantly eliminated—no second chances. </p> <h3>Power-Ups</h3> <p> Power-ups spawn periodically on the planet surface. Rolling over them grants temporary advantages: <br/><br/>
+
+    <strong>• Ghost</strong> — Become a spirit who cant be touched<br/>
+    <strong>• Super Boost</strong> — Increases your Boost power<br/>
+    <strong>• BIG BOI</strong> — Grow in size and mass.<br/>
+
+
+    </p>
+    <button id="main-btn" class="lp-btn">Return</button>
+    </div>
+  </div>
+<div id="game-container"></div>
+
+<div id="win-screen" class="win-overlay" style="display:none;">
+  <div class="win-box">
+    <h1 class="win-title">Winner!</h1>
+    <p id="win-text" class="win-name"></p>
+    <button id="win-restart-btn" class="lp-btn">Play Again</button>
+  </div>
+</div>
+
+  <script type="module" src="/src/main.ts" defer></script>
+</body>
+
+
+
 </html>

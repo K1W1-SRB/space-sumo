@@ -1,0 +1,330 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #050712;
+  font-family: "Noto Sans JP", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color: #f9fbff;
+}
+
+#game-container {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+#title-screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, #080b15, #05060f 70%);
+  overflow: hidden;
+  z-index: 10;
+}
+
+#info-screen {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 50%, #080b15, #05060f 70%);
+  overflow: hidden;
+  z-index: 10;
+}
+
+.lp-bg {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 40% 30%, rgba(200, 170, 255, 0.18), transparent 60%),
+              radial-gradient(circle at 70% 70%, rgba(160, 200, 255, 0.18), transparent 60%);
+  pointer-events: none;
+}
+
+
+.lp-planet {
+  position: absolute;
+  width: 280px;
+  height: 280px;
+  opacity: 0.8;
+  transform: translateY(-40px);
+  animation: lp-float 6s ease-in-out infinite alternate;
+}
+@keyframes lp-float {
+  from { transform: translateY(-40px); }
+  to   { transform: translateY(-20px); }
+}
+
+
+.lp-stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.3) 0 2px, transparent 3px),
+    radial-gradient(circle, rgba(255,255,255,0.2) 0 2px, transparent 3px),
+    radial-gradient(circle, rgba(255,255,255,0.15) 0 1px, transparent 2px);
+  background-size: 200px 200px, 300px 300px, 150px 150px;
+  opacity: 0.15;
+  pointer-events: none;
+}
+
+
+.lp-title-wrapper {
+  z-index: 20;
+  text-align: center;
+  animation: lp-appear 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+  display: flex;
+  flex-flow: column; 
+}
+@keyframes lp-appear {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.info-title-wrapper {
+  z-index: 20;
+  text-align: center;
+  animation: lp-appear 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(20px);
+  display: flex;
+  flex-flow: column; 
+  max-width: 50%;
+}
+@keyframes lp-appear {
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+
+
+.lp-title {
+  margin: 0 0 0.5rem;
+  font-size: 3.2rem;
+  letter-spacing: 0.15em;
+  color: #f0ecff;
+  font-weight: 800;
+  text-align: top;
+}
+
+.lp-sub {
+  margin: 0 0 2.2rem;
+  font-size: 1rem;
+  letter-spacing: 0.1em;
+  color: #cbd5ff;
+  opacity: 0.85;
+}
+
+.lp-btn {
+  padding: 1rem 3rem;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  border: none;
+  border-radius: 16px;
+  background: #c9b6ff;
+  color: #1b1b27;
+  font-weight: 700;
+  margin: 10px;
+  cursor: pointer;
+  box-shadow: 0 6px 0 #8a77bf;
+  transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
+}
+.lp-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 9px 0 #8a77bf;
+}
+.lp-btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 4px 0 #8a77bf;
+}
+
+.ss-orbit-layer {
+  position: absolute;
+  inset: -10%;
+  background:
+    radial-gradient(circle at 10% 20%, rgba(255,255,255,0.35) 0, transparent 3px),
+    radial-gradient(circle at 60% 40%, rgba(255,255,255,0.25) 0, transparent 2px),
+    radial-gradient(circle at 80% 70%, rgba(255,255,255,0.25) 0, transparent 3px),
+    radial-gradient(circle at 30% 80%, rgba(255,255,255,0.2) 0, transparent 2px);
+  opacity: 0.18;
+  mix-blend-mode: screen;
+  animation: ss-drift 26s linear infinite;
+}
+
+.ss-orbit-layer--slow {
+  opacity: 0.1;
+  animation-duration: 40s;
+}
+
+@keyframes ss-drift {
+  from { transform: scale(1.05) translateY(0); }
+  to   { transform: scale(1.15) translateY(-40px); }
+}
+
+.ss-wrapper {
+  position: relative;
+  text-align: center;
+  z-index: 2;
+  padding: 2rem 3rem;
+  border-radius: 18px;
+}
+
+@keyframes ss-appear {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+
+.ss-jp {
+  margin: 0 0 0.4rem 0;
+  font-size: 1.1rem;
+  letter-spacing: 0.25em;
+  color: #f3e5ff;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+
+.ss-title {
+  margin: 0;
+  font-size: 3rem;
+  letter-spacing: 0.18em;
+  font-weight: 800;
+  color: #f7f2ff;
+}
+
+
+.ss-tagline {
+  margin-top: 1.2rem;
+  font-size: 0.95rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #c8d6ff;
+  opacity: 0.85;
+}
+
+.ss-button {
+  margin-top: 2.4rem;
+  padding: 0.95rem 3.5rem;
+
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+
+  background: linear-gradient(135deg, #f8a3c7, #9ac6ff);
+  color: #151525;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+
+  box-shadow:
+    0 10px 0 #b07494,
+    0 14px 30px rgba(0, 0, 0, 0.6);
+
+  transition:
+    transform 0.12s ease-out,
+    box-shadow 0.12s ease-out,
+    filter 0.12s ease-out;
+}
+
+.ss-button:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 13px 0 #b07494,
+    0 20px 40px rgba(0, 0, 0, 0.7);
+  filter: brightness(1.02);
+}
+
+.ss-button:active {
+  transform: translateY(1px);
+  box-shadow:
+    0 6px 0 #b07494,
+    0 10px 24px rgba(0, 0, 0, 0.7);
+}
+
+/* WIN SCREEN OVERLAY */
+.win-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 20, 0.85);
+  backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+/* WIN POPUP BOX */
+.win-box {
+  background: linear-gradient(
+    145deg,
+    #c9b6ff 0%,
+    #a895ff 50%,
+    #8b7ad9 100%
+  );
+  padding: 40px 60px;
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(150, 120, 255, 0.4);
+  text-align: center;
+  animation: popIn 0.35s ease-out forwards;
+  transform: scale(0.8);
+  opacity: 0;
+}
+
+@keyframes popIn {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* TITLE */
+.win-title {
+  font-size: 3rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 10px;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+
+/* WINNER NAME */
+.win-name {
+  font-size: 1.5rem;
+  color: #1b1b27;
+  font-weight: 700;
+  margin-bottom: 30px;
+}
+
+/* BUTTON */
+.win-btn {
+  font-size: 1.2rem;
+  padding: 14px 32px;
+  margin-top: 10px;
+  background: #bba2ff !important;
+  color: #1b1b27 !important;
+  border-radius: 12px;
+  transition: 0.2s ease;
+}
+
+.win-btn:hover {
+  transform: translateY(-3px);
+  background: #d7c7ff !important;
+}
