@@ -93,9 +93,6 @@ export function startGameLoops(
       if (alive.length <= 1) {
         const winnerId = alive[0] ?? null;
 
-        const winnerName =
-          winnerId !== null ? lobby.players.get(winnerId) ?? null : null;
-
         io.to(lobby.code).emit(EVENTS.ROUND_OVER, { winnerId });
         console.log(`🏆 ROUND OVER in Lobby ${lobby.code}:`, winnerId);
 
